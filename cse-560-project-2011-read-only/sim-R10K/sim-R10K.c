@@ -338,7 +338,7 @@ struct LDST_station_t
   bool_t f_stall;
 
   int checkpoint;				/* index of checkpoint */
-  int commit;					/* can commit = 1, can't commit = 0 */
+  bool_t commit = FALSE;			/* can commit = TRUE, can't commit = FALSE */
 };
 
 /* Queue of LDST_station_t: used to implement the LSQ */
@@ -556,6 +556,49 @@ LDST_remove(struct LDST_queue_t *q,
   else q->lnum--;
 }
 
+/* setting all commits of stores */
+STATIC INLINE void
+ST_commits(struct LDST_queue_t *q,
+	    int checkpoint)
+{
+    struct LDST_station_t *ls = q->head;
+    
+    while(ls != NULL)
+    {
+	if(ls->checkpoint != checkpoint)
+	   break;
+	else
+	   commit = TRUE:
+	ls = ls->next;	
+    }
+}
+
+/* remove invalid stores on checkpoint recovery */
+STATIC INLINE void
+ST_commits(struct LDST_queue_t *q,
+	    int checkpoint)
+{
+    struct LDST_station_t *ls = q->head;
+    
+    /* looking for first instruction to remove */
+    while(ls != NULL)
+    {
+	if(ls->checkpoint == checkpoint)
+	   break;
+	else
+	   ls = ls->next;
+    }
+	
+    /* just making sure to remove through the tail */
+    while(ls != q->tail)
+    {
+	LDST_remove(q, ls, ls->is->pdi->iclass == ic_store);
+	ls = ls->next;
+    }
+
+    /* remove last */
+    LDST_remove(q, ls, ls->is->pdi->iclass == ic_store);
+}
 
 /* PREG_link_t management functions */
 #define PLINK_set(LINK, PREG)                                       \
