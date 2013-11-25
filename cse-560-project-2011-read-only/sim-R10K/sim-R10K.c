@@ -562,38 +562,38 @@ ST_commits(struct LDST_queue_t *q,
 	    int checkpoint)
 {
     struct LDST_station_t *ls = q->head;
-    
+
     while(ls != NULL)
     {
-	if(ls->checkpoint != checkpoint)
-	   break;
-	else
-	   commit = TRUE:
-	ls = ls->next;	
+    	if(ls->checkpoint != checkpoint)
+    		break;
+    	else
+    		ls->commit = TRUE;
+    	ls = ls->next;
     }
 }
 
 /* remove invalid stores on checkpoint recovery */
 STATIC INLINE void
-ST_commits(struct LDST_queue_t *q,
+ST_remove(struct LDST_queue_t *q,
 	    int checkpoint)
 {
     struct LDST_station_t *ls = q->head;
-    
+
     /* looking for first instruction to remove */
     while(ls != NULL)
     {
-	if(ls->checkpoint == checkpoint)
-	   break;
-	else
-	   ls = ls->next;
+    	if((ls->checkpoint == checkpoint) && (ls->commit == FALSE))
+    		break;
+    	else
+    		ls = ls->next;
     }
-	
+
     /* just making sure to remove through the tail */
     while(ls != q->tail)
     {
-	LDST_remove(q, ls, ls->is->pdi->iclass == ic_store);
-	ls = ls->next;
+    	LDST_remove(q, ls, ls->is->pdi->iclass == ic_store);
+    	ls = ls->next;
     }
 
     /* remove last */
