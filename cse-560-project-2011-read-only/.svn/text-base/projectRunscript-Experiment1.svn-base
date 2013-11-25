@@ -1,0 +1,33 @@
+date=$(date +%Y%m%d_%H%M%S)
+name="Experiment1-PregNum"
+
+logFolder="${name}-output-${date}"
+mkdir ${logFolder}
+
+simExec=("sim-R10K" "sim-R10K-reg")
+benchmarks=(ammp bzip2 equake gcc lucas mesa  parser vortex)
+
+echo "${name}"
+mkdir ${logFolder}/RawLogs
+
+for ((j=0; j<8; j++))
+do
+
+for ((regNum = 131; regNum<= 1027; regNum += 128))
+do
+echo "sim-R10K - ${benchmarks[$j]} - Preg ${regNum}"
+
+eval "sim-R10K/sim-R10K -insn:limit 60000000  -rename:pregs:num ${regNum} \
+	benchmarks/${benchmarks[$j]}.eio 2> ${logFolder}/RawLogs/sim-R10K_${benchmarks[$j]}_PREGSIZE-${regNum}.log"
+done
+grep "IPC" $(ls -tr ${logFolder}/RawLogs/*sim-R10K_${benchmarks[$j]}_PREGSIZE*) > ${logFolder}/sim-R10K_${benchmarks[$j]}_Experiment1Summary.log
+
+for ((regNum = 131; regNum<= 1027; regNum += 128))
+do
+echo "sim-R10K-reg - ${benchmarks[$j]} - Preg ${regNum}"
+eval "sim-R10K/sim-R10K-reg -insn:limit 60000000 -l1_pregfile:size ${regNum} \
+	benchmarks/${benchmarks[$j]}.eio 2> ${logFolder}/RawLogs/sim-R10K-reg_${benchmarks[$j]}_PREGSIZE-${regNum}.log"
+done
+grep "IPC" $(ls -tr ${logFolder}/RawLogs/*sim-R10K-reg_${benchmarks[$j]}_PREGSIZE*) > ${logFolder}/sim-R10K-reg_${benchmarks[$j]}_${name}-Summary.log
+
+done 

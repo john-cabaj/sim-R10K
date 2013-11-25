@@ -1,0 +1,9 @@
+-sched:rob:size     192
+-l1_pregfile:size    67
+-l1_pregfile:rwidth   4
+-l1_pregfile:wwidth   4
+-l1_pregfile:lat      1
+-l2_pregfile:size   192
+-l2_pregfile:rwidth   3
+-l2_pregfile:wwidth   3
+-l2_pregfile:lat      3

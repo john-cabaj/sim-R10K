@@ -1,0 +1,24 @@
+date=$(date +%Y%m%d_%H%M%S)
+name="Experiment3-RWidth"
+
+logFolder="${name}-output-${date}"
+mkdir ${logFolder}
+
+simExec=("sim-R10K" "sim-R10K-reg")
+benchmarks=(ammp bzip2 crafty equake gcc lucas mcf mesa mgrind parser vortex)
+
+echo "${name}"
+mkdir ${logFolder}/RawLogs
+
+for ((j=0; j<11; j++))
+do
+
+for ((rwidth = 1; rwidth<= 12; rwidth += 1))
+do
+echo "sim-R10K-reg - ${benchmarks[$j]} - RWIDTH ${rwidth}"
+eval "sim-R10K/sim-R10K-reg -insn:limit 60000000 -l1_pregfile:rwidth ${rwidth} \
+	benchmarks/${benchmarks[$j]}.eio 2> ${logFolder}/RawLogs/sim-R10K-reg_${benchmarks[$j]}_RWIDTH-${rwidth}.log"
+done
+grep "IPC" $(ls -tr ${logFolder}/RawLogs/*sim-R10K-reg_${benchmarks[$j]}_RWIDTH*) > ${logFolder}/sim-R10K-reg_${benchmarks[$j]}_${name}-Summary.log
+
+done 

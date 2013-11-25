@@ -1,0 +1,27 @@
+date=$(date +%Y%m%d_%H%M%S)
+name="Experiment9-L2Lat"
+
+logFolder="${name}-output-${date}"
+mkdir ${logFolder}
+
+simExec=("sim-R10K" "sim-R10K-reg")
+benchmarks=(ammp bzip2 crafty equake gcc lucas mcf mesa mgrind parser vortex)
+
+echo "${name}"
+mkdir ${logFolder}/RawLogs
+
+for ((latency = 1; latency <= 4; latency += 1))
+do
+
+for ((j=0; j<11; j++))
+do
+
+echo "sim-R10K-reg - ${benchmarks[$j]} - ${name}"
+eval "sim-R10K/sim-R10K-reg -insn:limit 60000000 -config exp9-base.cfg \
+		-l2_pregfile:lat ${latency} \
+		benchmarks/${benchmarks[$j]}.eio 2> ${logFolder}/RawLogs/sim-R10K-reg_${benchmarks[$j]}_-L2LAT-${latency}.log"
+done
+done
+
+grep "IPC" $(ls -tr ${logFolder}/RawLogs/*) > ${logFolder}/sim-R10K-reg_${name}-Summary.log
+

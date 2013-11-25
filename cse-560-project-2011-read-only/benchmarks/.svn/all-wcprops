@@ -1,0 +1,179 @@
+K 25
+svn:wc:ra_dav:version-url
+V 32
+/svn/!svn/ver/3/trunk/benchmarks
+END
+mcf.eio
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/3/trunk/benchmarks/mcf.eio
+END
+perlbmk.diffmail.eio
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/!svn/ver/3/trunk/benchmarks/perlbmk.diffmail.eio
+END
+gap.eio
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/3/trunk/benchmarks/gap.eio
+END
+lucas.eio
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/3/trunk/benchmarks/lucas.eio
+END
+gzip.eio
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/3/trunk/benchmarks/gzip.eio
+END
+eon.cook.eio
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/3/trunk/benchmarks/eon.cook.eio
+END
+equake.eio
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/3/trunk/benchmarks/equake.eio
+END
+swim.eio
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/3/trunk/benchmarks/swim.eio
+END
+applu.eio
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/3/trunk/benchmarks/applu.eio
+END
+eon.rushmeier.eio
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/3/trunk/benchmarks/eon.rushmeier.eio
+END
+mesa.eio
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/3/trunk/benchmarks/mesa.eio
+END
+art.eio
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/3/trunk/benchmarks/art.eio
+END
+bzip2.eio
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/3/trunk/benchmarks/bzip2.eio
+END
+vortex.eio
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/3/trunk/benchmarks/vortex.eio
+END
+sixtrack.eio
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/3/trunk/benchmarks/sixtrack.eio
+END
+facerec.eio
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/3/trunk/benchmarks/facerec.eio
+END
+eon.kajiya.eio
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/!svn/ver/3/trunk/benchmarks/eon.kajiya.eio
+END
+crafty.eio
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/3/trunk/benchmarks/crafty.eio
+END
+ammp.eio
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/3/trunk/benchmarks/ammp.eio
+END
+vpr.place.eio
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/3/trunk/benchmarks/vpr.place.eio
+END
+twolf.eio
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/3/trunk/benchmarks/twolf.eio
+END
+galgel.eio
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/3/trunk/benchmarks/galgel.eio
+END
+parser.eio
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/3/trunk/benchmarks/parser.eio
+END
+apsi.eio
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/3/trunk/benchmarks/apsi.eio
+END
+gcc.eio
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/3/trunk/benchmarks/gcc.eio
+END
+mgrid.eio
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/3/trunk/benchmarks/mgrid.eio
+END
+wupwise.eio
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/3/trunk/benchmarks/wupwise.eio
+END
+perlbmk.scrabbl.eio
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svn/!svn/ver/3/trunk/benchmarks/perlbmk.scrabbl.eio
+END
+vpr.route.eio
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/3/trunk/benchmarks/vpr.route.eio
+END
