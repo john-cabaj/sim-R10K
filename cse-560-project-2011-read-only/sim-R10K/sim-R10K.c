@@ -561,14 +561,19 @@ STATIC INLINE void
 ST_commits(struct LDST_queue_t *q,
 	    int checkpoint)
 {
+	/* head of LSQ */
     struct LDST_station_t *ls = q->head;
 
+    /* traversing LSQ */
     while(ls != NULL)
     {
+    	/* if we're no longer looking at the checkpoint, break */
     	if(ls->checkpoint != checkpoint)
     		break;
+    	/*otherwise, set the commit of the store */
     	else
     		ls->commit = TRUE;
+    	/* go to next element */
     	ls = ls->next;
     }
 }
@@ -578,6 +583,7 @@ STATIC INLINE void
 ST_remove(struct LDST_queue_t *q,
 	    int checkpoint)
 {
+	/* head of LSQ */
     struct LDST_station_t *ls = q->head;
 
     /* looking for first instruction to remove */
@@ -589,9 +595,10 @@ ST_remove(struct LDST_queue_t *q,
     		ls = ls->next;
     }
 
-    /* just making sure to remove through the tail */
+    /* making sure to remove through the tail */
     while(ls != q->tail)
     {
+    	/* remove from LSQ and go to next element */
     	LDST_remove(q, ls, ls->is->pdi->iclass == ic_store);
     	ls = ls->next;
     }
@@ -1962,8 +1969,8 @@ commit_store(struct INSN_station_t *is)
 {
   struct LDST_station_t *store = LSQ.head;
 
-  if(store->commit)
-  {
+  //if(store->commit)
+  //{
 	  assert(is->ls == store);
 
 	  /* go to the data cache */
@@ -1983,9 +1990,9 @@ commit_store(struct INSN_station_t *is)
 			 (byte_t *)&store->val.q, MD_DATAPATH_WIDTH);
 
 	  return TRUE;
-  }
-  else
-	  return FALSE;
+  //}
+  /*else
+	  return FALSE;*/
 }
 
 /* this function commits the results of the oldest completed entries from the
@@ -2852,7 +2859,7 @@ rename_stage(void)
 }
 
 /* fetch up as many instruction as one branch prediction and one cache line
-   acess will support without overflowing the IFETCH -> DISPATCH QUEUE */
+   access will support without overflowing the IFETCH -> DISPATCH QUEUE */
 STATIC void
 fetch_stage(void)
 {
