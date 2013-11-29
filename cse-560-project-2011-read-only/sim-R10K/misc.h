@@ -91,7 +91,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <sys/types.h>
-#include "/usr/local/include/zlib.h"
+#include "/filespace/people/c/cabaj/sim-R10K-lib/include/zlib.h"
 
 /* boolean value defs */
 #ifndef TRUE

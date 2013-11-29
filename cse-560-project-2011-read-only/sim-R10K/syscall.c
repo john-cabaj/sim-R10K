@@ -265,7 +265,7 @@
 #include <sys/socket.h>
 #include <sys/poll.h>
 
-#include "/usr/local/include/zlib.h"
+#include "/filespace/people/c/cabaj/sim-R10K-lib/include/zlib.h"
 
 #include "host.h"
 #include "misc.h"

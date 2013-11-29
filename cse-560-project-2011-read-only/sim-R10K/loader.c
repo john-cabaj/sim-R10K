@@ -80,7 +80,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "/usr/local/include/zlib.h"
+#include "/filespace/people/c/cabaj/sim-R10K-lib/include/zlib.h"
 
 #include "host.h"
 #include "misc.h"
