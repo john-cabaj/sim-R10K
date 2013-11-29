@@ -338,7 +338,7 @@ struct LDST_station_t
   bool_t f_stall;
 
   int checkpoint;				/* index of checkpoint */
-  bool_t commit = FALSE;			/* can commit = TRUE, can't commit = FALSE */
+  bool_t commit;
 };
 
 /* Queue of LDST_station_t: used to implement the LSQ */

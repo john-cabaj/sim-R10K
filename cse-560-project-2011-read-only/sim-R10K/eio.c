@@ -72,7 +72,7 @@
 #include <unistd.h>
 #endif /* _MSC_VER */
 
-#include "/usr/include/zlib.h"
+#include "/usr/local/include/zlib.h"
 
 #include "host.h"
 #include "misc.h"
