@@ -157,6 +157,8 @@ void CHECK_restore(int checkpoint);
 void CHECK_dumpElements();
 void CHECK_dumpBuffer();
 void CHECK_dump();
+void confidence_update();
+int confidence_predict();
 
 /* simulated registers */
 static struct regs_t regs;
@@ -378,9 +380,12 @@ struct CHECK_buff{
 
 /* Simulator state */
 
+/* checkpoint buffer and elements */
 static struct CHECK_element checkpoint_elements[8];
-
 static struct CHECK_buff CHECK_buffer;
+
+/* branch confidence counter */
+static int confidence_counter[1025][2];
 
 /* INSN_station_t freelist (simulator only, does not exist in actual procesor) */
 static struct INSN_station_t *INSN_flist = NULL;
@@ -830,6 +835,61 @@ CHECK_restore(int checkpoint){
         //restore the map table in the physical register file.
 
 }
+
+STATIC INLINE void
+confidence_update(int PC, int taken)
+{
+	PC = PC / (pow(2, 22));
+	if (taken)
+	{
+		if (confidence_counter[PC][0] < 16)
+		{
+			confidence_counter[PC][0] = confidence_counter[PC][0] + 1;
+		}
+		else
+		{
+			confidence_counter[PC][0] = 16;
+		}
+
+		if (confidence_counter[PC][1] < 16)
+		{
+			confidence_counter[PC][1] = confidence_counter[PC][1] + 1;
+		}
+		else
+		{
+			confidence_counter[PC][1] = 16;
+		}
+	}
+	else
+	{
+		confidence_counter[PC][0] = confidence_counter[PC][0] - 1;
+
+		if (confidence_counter[PC][1] < 16)
+		{
+			confidence_counter[PC][1] = confidence_counter[PC][1] + 1;
+		}
+		else
+		{
+			confidence_counter[PC][1] = 16;
+		}
+	}
+}
+
+STATIC INLINE int
+confidence_predict(int PC)
+{
+	int confidence;
+	PC = PC/(pow(2, 22));
+	confidence = (confidence_counter[PC][0]/confidence_counter[PC][1])*100;
+	return (confidence);
+}
+
+
+
+
+
+
+
 
 /* PREG_link_t management functions */
 #define PLINK_set(LINK, PREG)                                       \
