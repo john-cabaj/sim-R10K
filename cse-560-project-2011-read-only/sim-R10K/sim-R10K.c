@@ -145,6 +145,19 @@
 #include "adisambig.h"
 #include "fastfwd.h"
 
+void CHECK_Init();
+int CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC);
+int CHECK_AddInstruction();
+void CHECK_RemoveInstruction(int checkpoint);
+void CHECK_tryCommit();
+void CHECK_erase(int checkpoint);
+void CHECK_getActiveMaps();
+void CHECK_revert(int checkpoint);
+void CHECK_restore(int checkpoint);
+void CHECK_dumpElements();
+void CHECK_dumpBuffer();
+void CHECK_dump();
+
 /* simulated registers */
 static struct regs_t regs;
 
@@ -694,6 +707,7 @@ CHECK_tryCommit(){
         if (checkpoint_elements[CHECK_buffer.buffer[0]].commitReady == TRUE){
                 //commit the first checkpoint
                 //Tell LSQ to start committing.
+        		ST_commits(&LSQ, CHECK_buffer.buffer[0]);
                 //Free the Registers associated with this checkpoint.
                 fprintf(stdout,"CHECKPOINT %d COMMITTED\n",CHECK_buffer.buffer[0]);
                 CHECK_erase(CHECK_buffer.buffer[0]);
@@ -731,6 +745,7 @@ STATIC INLINE void
 CHECK_revert(int checkpoint){
         fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
         //Tell the LSQ to kill everything passed this checkpoint.
+        ST_remove(&LSQ, checkpoint);
         //Tell the register file to erase everything but this map table (and previous ones).
         //how to send map table?
         int newTail = 0;
