@@ -119,6 +119,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <assert.h>
 #include <signal.h>
@@ -349,7 +350,24 @@ struct LDST_queue_t
   counter_t scount, lcount;
 };
 
+struct CHECK_element{
+        regnum_t *mapTable;
+        md_addr_t checkpointPC;
+        int numberOfInstructions;
+        int commitReady;
+        int inUse;
+};
+
+struct CHECK_buff{
+        int tail;       //points to the next free buffer entry.
+        int buffer[8];  //the actual buffer.
+};
+
 /* Simulator state */
+
+static struct CHECK_element checkpoint_elements[8];
+
+static struct CHECK_buff CHECK_buffer;
 
 /* INSN_station_t freelist (simulator only, does not exist in actual procesor) */
 static struct INSN_station_t *INSN_flist = NULL;
@@ -605,6 +623,197 @@ ST_remove(struct LDST_queue_t *q,
 
     /* remove last */
     LDST_remove(q, ls, ls->is->pdi->iclass == ic_store);
+}
+
+STATIC INLINE void
+CHECK_Init(){
+
+        int i;
+        for ( i = 0; i<8; i++){
+                CHECK_buffer.buffer[i] = -1;
+                checkpoint_elements[i].mapTable = malloc(MD_TOTAL_REGS*sizeof(regnum_t));
+                checkpoint_elements[i].checkpointPC = 0;
+                checkpoint_elements[i].numberOfInstructions = 0;
+                checkpoint_elements[i].commitReady = FALSE;
+                checkpoint_elements[i].inUse = FALSE;
+        }
+        CHECK_buffer.tail = 0;
+//      CHECK_buffer.buffer[0] = 0;
+
+}
+
+STATIC INLINE int
+CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
+
+        if(CHECK_buffer.tail < 7){
+                int i;
+                for (i = 0;i<8;i++){
+                        if (checkpoint_elements[i].inUse == FALSE){
+                                CHECK_buffer.buffer[CHECK_buffer.tail] = i;
+                                CHECK_buffer.tail ++;
+                                checkpoint_elements[i].inUse = TRUE;
+                                //copy the map table.
+                                memcpy(checkpoint_elements[i].mapTable,mapTable,MD_TOTAL_REGS*sizeof(regnum_t));
+                                checkpoint_elements[i].checkpointPC = checkpointPC;
+                                checkpoint_elements[i].commitReady = FALSE;
+                                checkpoint_elements[i].numberOfInstructions = 0;
+                                break;
+                        }
+                }
+                return TRUE;
+        }
+        else{
+                //The buffer is full.  Add to already allocated checkpoint.
+                return FALSE;
+        }
+}
+
+STATIC INLINE int
+CHECK_AddInstruction(){  //try to add the instruction to the current chkpnt.  If it doesn't work try to make another one.
+
+        if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions >=256){
+                return -1;
+        }
+
+        checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions++;
+        checkpoint_elements[CHECK_buffer.tail-1].commitReady=FALSE;
+        return CHECK_buffer.tail-1;
+}
+
+STATIC INLINE void
+CHECK_RemoveInstruction(int checkpoint){
+        checkpoint_elements[checkpoint].numberOfInstructions--;
+        if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
+                checkpoint_elements[checkpoint].commitReady = TRUE;
+                CHECK_tryCommit();
+        }
+}
+
+STATIC INLINE void
+CHECK_tryCommit(){
+        if (checkpoint_elements[CHECK_buffer.buffer[0]].commitReady == TRUE){
+                //commit the first checkpoint
+                //Tell LSQ to start committing.
+                //Free the Registers associated with this checkpoint.
+                fprintf(stdout,"CHECKPOINT %d COMMITTED\n",CHECK_buffer.buffer[0]);
+                CHECK_erase(CHECK_buffer.buffer[0]);
+
+                //update the map checkpoint buffer and the checkpoint itself.
+                int i;
+                for (i = 1;i<CHECK_buffer.tail;i++){
+                        CHECK_buffer.buffer[i-1] = CHECK_buffer.buffer[i];
+                        fprintf(stdout,"REORDER BUFFER: \n");
+
+                }
+                CHECK_buffer.buffer[CHECK_buffer.tail-1] = -1;
+                CHECK_buffer.tail--;
+                CHECK_tryCommit();
+        }
+        else{
+                //oldest checkpoint can't be committed yet.
+                //wait.
+        }
+}
+
+STATIC INLINE void
+CHECK_erase(int checkpoint){
+        checkpoint_elements[checkpoint].inUse = FALSE;
+        checkpoint_elements[checkpoint].numberOfInstructions = 0;
+        checkpoint_elements[checkpoint].commitReady = FALSE;
+}
+
+STATIC INLINE void
+CHECK_getActiveMaps(){
+        //this will return all active registers if we need it.  Not sure that we will, though.
+}
+
+STATIC INLINE void
+CHECK_revert(int checkpoint){
+        fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
+        //Tell the LSQ to kill everything passed this checkpoint.
+        //Tell the register file to erase everything but this map table (and previous ones).
+        //how to send map table?
+        int newTail = 0;
+        //update the checkpoint buffer.
+        int found = FALSE;
+        int i;
+        for (i =0;i<=CHECK_buffer.tail;i++){
+                if (CHECK_buffer.buffer[i] == checkpoint){
+                        CHECK_erase(checkpoint);
+                        CHECK_buffer.buffer[i] = -1;
+                        newTail = i;
+                        found = TRUE;
+                }
+
+                if (found==TRUE){
+                        CHECK_erase(CHECK_buffer.buffer[i]);
+                        CHECK_buffer.buffer[i] = -1;
+                        //Squash instructions for these checkpoints here?
+                }
+        }
+        CHECK_buffer.tail = newTail;
+        if (found == FALSE){
+                fprintf(stdout,"Checkpoint to revert not found!!");
+        }
+}
+
+//print everything!
+STATIC INLINE void
+CHECK_dumpElements(){
+        int i;
+        for (i = 0;i<8;i++){
+                fprintf(stdout,"checkpoint %d:\n", i);
+                fprintf(stdout,"map Table: (unimplemented)\n" );
+                fprintf(stdout,"checkpoint PC %d\n", checkpoint_elements[i].checkpointPC);
+                fprintf(stdout,"checkpoint number of instructions: %d\n", checkpoint_elements[i].numberOfInstructions);
+                fprintf(stdout,"checkpoint commit ready: %d\n", checkpoint_elements[i].commitReady);
+                fprintf(stdout,"checkpoint in use: %d\n", checkpoint_elements[i].inUse);
+
+        }
+}
+
+STATIC INLINE void
+CHECK_dumpBuffer(){
+        int i;
+        fprintf(stdout,"\n\nCheckpoint Buffer:\n");
+        fprintf(stdout,"Tail: %d\n",CHECK_buffer.tail);
+        for (i = 0;i<8;i++){
+                fprintf(stdout, "%d\n", CHECK_buffer.buffer[i]);
+        }
+}
+
+STATIC INLINE void
+CHECK_dump(){
+        CHECK_dumpElements();
+        CHECK_dumpBuffer();
+}
+//Don't need this one?  This can be modified to do 2 at once.
+STATIC INLINE void
+CHECK_restore(int checkpoint){
+
+        int found = FALSE;
+        int i;
+        int n;
+        for (i = 0;i<CHECK_buffer.tail;i++){
+                if (CHECK_buffer.buffer[i]==checkpoint){
+                        found = TRUE;
+                        for (n = i; n < CHECK_buffer.tail; n++){
+                                CHECK_revert(CHECK_buffer.buffer[n]);
+                        }
+                        break;
+                }
+        }
+
+
+
+        if (found != TRUE){
+                fprintf(stdout,"can't find the checkpoint to revert!");
+        }
+        //pass the oldest checkpoint to restore to the LSQ so it can erase everything from there.
+
+
+        //restore the map table in the physical register file.
+
 }
 
 /* PREG_link_t management functions */
