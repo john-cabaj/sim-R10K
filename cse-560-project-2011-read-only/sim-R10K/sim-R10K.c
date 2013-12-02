@@ -884,12 +884,18 @@ confidence_predict(int PC)
 	return (confidence);
 }
 
-
-
-
-
-
-
+STATIC INLINE void
+confidence_init()
+{
+	int i, j;
+	for(i = 0; i < 2025; i++)
+	{
+		for(j = 0; j < 2; j++)
+		{
+			confidence_counter[i][j] = 0;
+		}
+	}
+}
 
 /* PREG_link_t management functions */
 #define PLINK_set(LINK, PREG)                                       \
@@ -2524,6 +2530,10 @@ writeback_stage(void)
 
       preg->when_written = is->when.completed;
 
+	  ///////////////////////////////////////////////////////////////////////////
+	  /* 				 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
+	  ///////////////////////////////////////////////////////////////////////////
+
       /* Are we resolving a mis-predicted branch? */
       if (is->f_bmisp)
 	{
@@ -2538,6 +2548,10 @@ writeback_stage(void)
 	  /* recover ROB and IFQ, and steer fetch to correct path */
 	  ROB_recover(is, /* f_bmisp */TRUE);
 	  IFQ_recover(is);
+
+	  ///////////////////////////////////////////////////////////////////////////
+	  /* 			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 		   */
+	  ///////////////////////////////////////////////////////////////////////////
 
 	  /* recover branch predictor state */
 	  if (bpred)
@@ -2745,6 +2759,10 @@ schedule_stage(void)
 	      /* recover ROB, IFQ, and branch predictor starting from lis */
 	      ROB_recover(lis_prev, /* f_bmisp */FALSE);
 	      IFQ_recover(lis_prev);
+
+		  ///////////////////////////////////////////////////////////////////////////
+	      /* 				  RECOVER A CHECKPOINT ON STORE PROBLEM 		   	   */
+		  ///////////////////////////////////////////////////////////////////////////
 
 	      if (bpred)
 		bpred_recover(bpred, lis_prev->PC, lis_prev->pdi->poi.op,
@@ -3224,6 +3242,15 @@ fetch_stage(void)
 	    bpred_lookup(bpred, is->PC, is->pdi->poi.op, &is->bp_pre_state);
 
 	  is->when.predicted = sim_cycle;
+
+	  ///////////////////////////////////////////////////////////////////////////
+	  /* 				TRY ADDING INSTRUCTION TO CHECKPOINT				   */
+	  ///////////////////////////////////////////////////////////////////////////
+
+
+	  ///////////////////////////////////////////////////////////////////////////
+	  /* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LIMIT */
+	  ///////////////////////////////////////////////////////////////////////////
 
 	  /* discontinuous fetch => break until next cycle */
 	  if (is->PPC != is->PC + sizeof(md_inst_t))
