@@ -382,6 +382,8 @@ struct CHECK_element{
         int commitReady;
         int inUse;
         int total;
+        int insnTypeCounter[ic_NUM];
+        int insnCounter;
 };
 
 struct CHECK_buff{
@@ -658,6 +660,7 @@ STATIC INLINE void
 CHECK_Init(){
 
         int i;
+        int n;
         for ( i = 0; i<8; i++){
                 CHECK_buffer.buffer[i] = -1;
                 checkpoint_elements[i].mapTable = malloc(MD_TOTAL_REGS*sizeof(regnum_t));
@@ -665,6 +668,13 @@ CHECK_Init(){
                 checkpoint_elements[i].numberOfInstructions = 0;
                 checkpoint_elements[i].commitReady = FALSE;
                 checkpoint_elements[i].inUse = FALSE;
+                checkpoint_elements[i].total = 0;
+                checkpoint_elements[i].insnCounter = 0;
+
+                for (n=0;n<ic_NUM;n++){
+                	checkpoint_elements[i].insnTypeCounter[n] = 0;
+                }
+
         }
         CHECK_buffer.tail = 0;
 //      CHECK_buffer.buffer[0] = 0;
@@ -682,13 +692,11 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
                         if (checkpoint_elements[i].inUse == FALSE){
                                 CHECK_buffer.buffer[CHECK_buffer.tail] = i;
                                 CHECK_buffer.tail ++;
+                                CHECK_erase();
                                 checkpoint_elements[i].inUse = TRUE;
                                 //copy the map table.
                                 memcpy(checkpoint_elements[i].mapTable,mapTable,MD_TOTAL_REGS*sizeof(regnum_t));
                                 checkpoint_elements[i].checkpointPC = checkpointPC;
-                                checkpoint_elements[i].commitReady = FALSE;
-                                checkpoint_elements[i].numberOfInstructions = 0;
-                                checkpoint_elements[i].total = 0;
                                 break;
                         }
                 }
@@ -719,12 +727,20 @@ CHECK_AddInstruction(){  //try to add the instruction to the current chkpnt.  If
 }
 
 STATIC INLINE void
-CHECK_RemoveInstruction(int checkpoint){
-        checkpoint_elements[checkpoint].numberOfInstructions--;
-        if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
-                checkpoint_elements[checkpoint].commitReady = TRUE;
-                CHECK_tryCommit();
-        }
+CHECK_RemoveInstruction(int checkpoint, int insnType){
+
+    checkpoint_elements[checkpoint].numberOfInstructions--;
+
+	if(insnType != ic_load && insnType != ic_store && insnType != ic_prefetch){
+
+        checkpoint_elements[checkpoint].insnTypeCounter[insnType]++;
+        checkpoint_elements[checkpoint].insnCounter++;
+	}
+
+	if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
+			checkpoint_elements[checkpoint].commitReady = TRUE;
+			CHECK_tryCommit();
+	}
 }
 
 STATIC INLINE void
@@ -735,8 +751,18 @@ CHECK_tryCommit(){
         		ST_commits(&LSQ, CHECK_buffer.buffer[0]);
                 //Free the Registers associated with this checkpoint.
                 fprintf(stdout,"CHECKPOINT %d COMMITTED\n",CHECK_buffer.buffer[0]);
-                CHECK_erase(CHECK_buffer.buffer[0]);
 
+
+                //update the counters for the number of instructions committed.
+                int n;
+                for (n=0;n<ic_NUM;n++){
+                	n_insn_commit[n] += checkpoint_elements[CHECK_buffer.buffer[0]].insnTypeCounter[n];
+                }
+
+                sim_num_insn += checkpoint_elements[CHECK_buffer.buffer[0]].insnCounter;
+                n_insn_commit_sum+= checkpoint_elements[CHECK_buffer.buffer[0]].insnCounter;
+
+                CHECK_erase(CHECK_buffer.buffer[0]);
                 //update the map checkpoint buffer and the checkpoint itself.
                 int i;
                 for (i = 1;i<CHECK_buffer.tail;i++){
@@ -759,6 +785,14 @@ CHECK_erase(int checkpoint){
         checkpoint_elements[checkpoint].inUse = FALSE;
         checkpoint_elements[checkpoint].numberOfInstructions = 0;
         checkpoint_elements[checkpoint].commitReady = FALSE;
+        checkpoint_elements[checkpoint].insnCounter = 0;
+
+        int i;
+        for (i=0;i<ic_NUM;i++){
+            checkpoint_elements[checkpoint].insnTypeCounter[i] = 0;
+        }
+
+        checkpoint_elements[checkpoint].total = 0;
 }
 
 STATIC INLINE void
@@ -2401,6 +2435,7 @@ commit_stage(void)
       n_insn_commit_sum++;
       sim_num_insn++;
 
+      //FIXME: Move some of this to the writeback stage!
       if (is->pdi->iclass == ic_sys)
 	{
 	  /* This preg will be freed.  We will need to allocate a new one */
@@ -2450,7 +2485,7 @@ commit_stage(void)
 	      fclose(fdump);
 	    }
 	}
-
+      //FIXME: need to find another way to get instructions in LSQ!
       if (is->pdi->iclass == ic_load || is->pdi->iclass == ic_store || is->pdi->iclass == ic_prefetch)
 	{
 	  /* remove from LSQ */
