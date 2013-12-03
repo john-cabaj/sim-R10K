@@ -148,13 +148,11 @@
 
 void CHECK_Init();
 int CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC);
-int CHECK_AddInstruction();
-void CHECK_RemoveInstruction(int checkpoint);
+void CHECK_RemoveInstruction(int checkpoint, int insnType);
 void CHECK_tryCommit();
 void CHECK_erase(int checkpoint);
 void CHECK_getActiveMaps();
 void CHECK_revert(int checkpoint);
-void CHECK_restore(int checkpoint);
 int CHECK_isInUse(int checkpoint);
 void CHECK_dumpElements();
 void CHECK_dumpBuffer();
@@ -695,8 +693,8 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 		for (i = 0;i<8;i++){
 			if (checkpoint_elements[i].inUse == FALSE){
 				CHECK_buffer.buffer[CHECK_buffer.tail] = i;
+				CHECK_erase(CHECK_buffer.tail);
 				CHECK_buffer.tail ++;
-				CHECK_erase();
 				checkpoint_elements[i].inUse = TRUE;
 				//copy the map table.
 				memcpy(checkpoint_elements[i].mapTable,mapTable,MD_TOTAL_REGS*sizeof(regnum_t));
@@ -2385,8 +2383,8 @@ commit_store(struct INSN_station_t *is)
 {
 	struct LDST_station_t *store = LSQ.head;
 
-	/**/if(store->commit)
-	/**/{
+	if(store->commit)
+	{
 		assert(is->ls == store);
 
 		/* go to the data cache */
@@ -2406,9 +2404,9 @@ commit_store(struct INSN_station_t *is)
 				(byte_t *)&store->val.q, MD_DATAPATH_WIDTH);
 
 		return TRUE;
-	/**/}
-	/**/else
-		/**/return FALSE;
+	}
+	else
+		return FALSE;
 }
 
 /* this function commits the results of the oldest completed entries from the
@@ -2419,10 +2417,10 @@ commit_stage(void)
 	int commit_n = 0, commit_store_n = 0;
 	/* all values must be retired to the architected reg file in
      program order */
-	while (LSQ->head &&
+	while (LSQ.head &&
 			commit_n < commit_width)
 	{
-		struct INSN_station_t *is = LSQ->head->is;
+		struct INSN_station_t *is = LSQ.head->is;
 		struct preg_t *preg = &pregs[is->pregnums[DEP_O1]];
 		struct preg_t *freg = &pregs[is->fregnum];
 
@@ -2524,6 +2522,7 @@ commit_stage(void)
 			LDST_free(ls);
 		}
 
+		/*
 		if (is->f_rs)
 		{
 			if (is->pdi->iclass != ic_prefetch)
@@ -2534,8 +2533,9 @@ commit_stage(void)
 		}
 
 		regs_commit(is->pregnums[DEP_O1]);
+		*/
 
-		/* committing now */
+		//committing now
 		is->when.committed = sim_cycle;
 
 		/* free over-written register */
@@ -2672,6 +2672,15 @@ writeback_stage(void)
 		struct PREG_link_t *link;
 		struct INSN_station_t *is = preg->is;
 
+		/* if link is not valid (instruction has been squashed), delete and skip */
+		/*if (!PLINK_valid(preg)) || !preg->is)
+		{
+			if (pnode) pnode->next = nnode;
+			else scheduler_queue = nnode;
+			PLINK_free(node);
+			continue;
+		}*/
+
 		/* IS has completed execution and (possibly) produced a result */
 		if (!is->when.regread || !is->when.ready || !is->when.issued)
 			panic("written back insn !regread, !ready, or !issued");
@@ -2684,13 +2693,8 @@ writeback_stage(void)
 
 		preg->when_written = is->when.completed;
 
-		///////////////////////////////////////////////////////////////////////////
-		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
-		///////////////////////////////////////////////////////////////////////////
-		/**/CHECK_RemoveInstruction(is->checkpoint);
-
 		/* Are we resolving a mis-predicted branch? */
-		if (is->f_bmisp)
+		if (is->f_bmisp && (preg->tag == preg->is->tag))
 		{
 
 			if (is->pdi->iclass != ic_ctrl && is->pdi->poi.op != PAL_CALLSYS)
@@ -2707,13 +2711,21 @@ writeback_stage(void)
 			///////////////////////////////////////////////////////////////////////////
 			/* TODO:			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 	   */
 			///////////////////////////////////////////////////////////////////////////
-			/**/CHECK_dumpElements();
-			/**/fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
-			/**/CHECK_revert(is->checkpoint);
+			CHECK_dumpElements();
+			fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
+			CHECK_revert(is->checkpoint);
 
 			/* recover branch predictor state */
 			if (bpred)
 				bpred_recover(bpred, is->PC, is->pdi->poi.op, is->NPC, &is->bp_pre_state);
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
+		///////////////////////////////////////////////////////////////////////////
+		if(preg->tag == preg->is->tag)
+		{
+			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
 		}
 
 		/* wakeup ready instructions */
@@ -2738,6 +2750,42 @@ writeback_stage(void)
 			/* try and schedule this instruction the next time around */
 			if (!ois->pdi->iclass == ic_nop)
 				scheduler_enqueue(opreg);
+		}
+
+		if (is->f_rs)
+		{
+			if (is->pdi->iclass != ic_prefetch)
+				panic("non-prefetch with RS at retirement!");
+
+			is->f_rs = FALSE;
+			rs_num++;
+		}
+
+		regs_commit(is->pregnums[DEP_O1]);
+
+		/* committing now */
+		is->when.committed = sim_cycle;
+
+		if (is->pdi->iclass == ic_ctrl)
+		{
+			//Update branch predictor
+			if (bpred)
+				bpred_update(bpred,
+						//branch address
+						is->PC,
+						//instruction
+						is->pdi->poi.op,
+						//actual target address
+						is->NPC,
+						//target address
+						is->TPC,
+						//predicted target address
+						is->PPC,
+						//update info
+						&is->bp_pre_state);
+
+			if (is->NPC != is->PPC)
+				n_branch_misp++;
 		}
 	}  /* for all writeback events */
 }
@@ -2921,8 +2969,8 @@ schedule_stage(void)
 				///////////////////////////////////////////////////////////////////////////
 				/* TODO:			  RECOVER A CHECKPOINT ON STORE PROBLEM 		   	   */
 				///////////////////////////////////////////////////////////////////////////
-				/**/fprintf(stdout, "CHECKPOINT REVERT - STORE ISSUES\n");
-				/**/CHECK_revert(lis->checkpoint);
+				fprintf(stdout, "CHECKPOINT REVERT - STORE ISSUES\n");
+				CHECK_revert(lis->checkpoint);
 
 				if (bpred)
 					bpred_recover(bpred, lis_prev->PC, lis_prev->pdi->poi.op,
@@ -3256,32 +3304,32 @@ rename_stage(void)
 		/* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LIMIT */
 		///////////////////////////////////////////////////////////////////////////
 		//TODO: MODIFY FOR CORRECTNESS
-		/**/if(is->allocate) {
-			/**/if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+		if(is->allocate) {
+			if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
 				//TODO: STALL
-				/**/fprintf(stdout, "OUT OF CHECKPOINTS - BRANCH\n");
-				/**/break;
-			/**/}
-			/**/fprintf(stdout, "SUCCESSFUL BRANCH CHECKPOINT ALLOCATE\n");
-		/**/}
+				fprintf(stdout, "OUT OF CHECKPOINTS - BRANCH\n");
+				break;
+			}
+			fprintf(stdout, "SUCCESSFUL BRANCH CHECKPOINT ALLOCATE\n");
+		}
 
-		/**/if((decode_checkpoint = CHECK_AddInstruction()) == -1) {
-			/**/if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+		if((decode_checkpoint = CHECK_AddInstruction(is->pdi->iclass, is)) == -1) {
+			if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
 				//TODO: STALL
-				/**/fprintf(stdout, "OUT OF CHECKPOINTS - INSTR\n");
-				/**/break;
-			/**/}
-			/**/else {
-				/**/decode_checkpoint = CHECK_AddInstruction();
-				/**/fprintf(stdout, "SUCCESSFUL INSTR CHECKPOINT ALLOCATE\n");
-			/**/}
-		/**/}
+				fprintf(stdout, "OUT OF CHECKPOINTS - INSTR\n");
+				break;
+			}
+			else {
+				decode_checkpoint = CHECK_AddInstruction(is->pdi->iclass, is);
+				fprintf(stdout, "SUCCESSFUL INSTR CHECKPOINT ALLOCATE\n");
+			}
+		}
 
 		rename_n++;
 		n_insn_rename++;
 
 		//TODO:
-		/**/is->checkpoint = decode_checkpoint;
+		is->checkpoint = decode_checkpoint;
 		/* move insn from IFQ to ROB */
 		INSN_remove(&IFQ, is);
 		//INSN_enqueue(&ROB, is);
@@ -3429,7 +3477,7 @@ fetch_stage(void)
 		/////////////////////////////////////////////////////////////////
 		/* TODO: SET BRANCH CONFIDENCE FOR INSTRUCTION                 */
 		/////////////////////////////////////////////////////////////////
-		/**/is->allocate = FALSE;
+		is->allocate = FALSE;
 
 
 		/* get the next predicted fetch address; only use branch predictor
@@ -3443,9 +3491,9 @@ fetch_stage(void)
 			is->when.predicted = sim_cycle;
 
 			//TODO: BRANCH PREDICTION
-			/**/if(confidence_predict(is->PPC) < 15) {
-				/**/is->allocate = TRUE;
-			/**/}
+			if(confidence_predict(is->PPC) < 15) {
+				is->allocate = TRUE;
+			}
 
 			/* discontinuous fetch => break until next cycle */
 			if (is->PPC != is->PC + sizeof(md_inst_t))
