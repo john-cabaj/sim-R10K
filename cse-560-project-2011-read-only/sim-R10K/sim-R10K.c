@@ -845,6 +845,13 @@ CHECK_revert(int checkpoint){
 	CHECK_dumpElements();
 }
 
+STATIC INLINE int
+CHECK_isInUse(int checkpoint){
+
+	return checkpoint_elements[checkpoint].inUse;
+
+}
+
 //print everything!
 STATIC INLINE void
 CHECK_dumpElements(){
