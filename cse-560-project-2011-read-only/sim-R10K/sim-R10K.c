@@ -2448,14 +2448,8 @@ commit_stage(void)
       n_insn_commit_sum++;
       sim_num_insn++;
 
-<<<<<<< HEAD
-
-      //FIXME: Move some of this to the writeback stage!
-
-=======
       //FIXME: Move some of this to the writeback stage!
       /*
->>>>>>> 131b20429a62792188b5db059a326fcb11f59377
       if (is->pdi->iclass == ic_sys)
 	{
 	  //This preg will be freed.  We will need to allocate a new one
@@ -2491,7 +2485,7 @@ commit_stage(void)
 
 	  if (is->NPC != is->PPC)
 	    n_branch_misp++;
-	}
+	}*/
 
       if (fdump)
 	{
@@ -2556,6 +2550,25 @@ commit_stage(void)
       /* one more instruction committed to architected state */
       commit_n++;
     }
+
+	  struct preg_t *preg = &pregs[systemCallAddress->pregnums[DEP_O1]];
+
+  	  if (hasSystemCall)
+  	{
+  	  //This preg will be freed.  We will need to allocate a new one
+  	  preg->is = NULL;
+  	  //Do the syscall
+  	  exec_insn(systemCallAddress);
+  	  //Allocate new physical register
+  	systemCallAddress->pregnums[DEP_O1] = lregs[systemCallAddress->pdi->lregnums[DEP_O1]];
+  	  preg = &pregs[systemCallAddress->pregnums[DEP_O1]];
+
+  	  preg->is = systemCallAddress;
+  	  preg->when_written = sim_cycle;
+
+  	  systemCallAddress = NULL;
+  	  hasSystemCall = FALSE;
+  	}
 }
 
 /* writeback stage implementation */
@@ -3204,6 +3217,30 @@ rename_stage(void)
       int dep = 0;
       int decode_checkpoint = -1;
 
+      /* un-acceptable path */
+      if (!sched_spec && f_wrong_path)
+	break;
+
+      /* ROB full */
+      /*if (ROB.num == ROB.size)
+	break;*/
+
+      /* LDQ full */
+      if ((is->pdi->iclass == ic_load || is->pdi->iclass == ic_prefetch) && LSQ.lnum == LSQ.lsize)
+	break;
+
+      /* STQ full */
+      if (is->pdi->iclass == ic_store && LSQ.snum == LSQ.ssize)
+	break;
+
+      /* no more reservation stations */
+      if (is->pdi->iclass != ic_sys && sched_rs_num == rs_num)
+	break;
+
+      /* don't let anyone come in if a syscall is in the machine */
+      if (hasSystemCall)
+	break;
+
       ///////////////////////////////////////////////////////////////////////////
 	  /* 				TRY ADDING INSTRUCTION TO CHECKPOINT				   */
 	  ///////////////////////////////////////////////////////////////////////////
@@ -3231,30 +3268,6 @@ rename_stage(void)
 			  /**/fprintf(stdout, "SUCCESSFUL INSTR CHECKPOINT ALLOCATE\n");
 		  /**/}
 	  /**/}
-
-      /* un-acceptable path */
-      if (!sched_spec && f_wrong_path)
-	break;
-
-      /* ROB full */
-      /*if (ROB.num == ROB.size)
-	break;*/
-
-      /* LDQ full */
-      if ((is->pdi->iclass == ic_load || is->pdi->iclass == ic_prefetch) && LSQ.lnum == LSQ.lsize)
-	break;
-
-      /* STQ full */
-      if (is->pdi->iclass == ic_store && LSQ.snum == LSQ.ssize)
-	break;
-
-      /* no more reservation stations */
-      if (is->pdi->iclass != ic_sys && sched_rs_num == rs_num)
-	break;
-
-      /* don't let anyone come in if a syscall is in the machine */
-      if (hasSystemCall)
-	break;
 
       rename_n++;
       n_insn_rename++;
