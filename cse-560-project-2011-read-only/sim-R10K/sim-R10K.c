@@ -2544,27 +2544,27 @@ commit_stage(void)
       /* external per-instruction instance counter, occasionally useful */
       commit_NPC = is->NPC;
 
-      INSN_remove(&ROB, is);
+      //INSN_remove(&ROB, is);
       INSN_free(is);
 
       /* one more instruction committed to architected state */
       commit_n++;
     }
 
-	  struct preg_t *preg = &pregs[systemCallAddress->pregnums[DEP_O1]];
+	  struct preg_t *sys_preg = &pregs[systemCallAddress->pregnums[DEP_O1]];
 
   	  if (hasSystemCall)
   	{
   	  //This preg will be freed.  We will need to allocate a new one
-  	  preg->is = NULL;
+  	  sys_preg->is = NULL;
   	  //Do the syscall
   	  exec_insn(systemCallAddress);
   	  //Allocate new physical register
-  	systemCallAddress->pregnums[DEP_O1] = lregs[systemCallAddress->pdi->lregnums[DEP_O1]];
-  	  preg = &pregs[systemCallAddress->pregnums[DEP_O1]];
+  	  systemCallAddress->pregnums[DEP_O1] = lregs[systemCallAddress->pdi->lregnums[DEP_O1]];
+  	  sys_preg = &pregs[systemCallAddress->pregnums[DEP_O1]];
 
-  	  preg->is = systemCallAddress;
-  	  preg->when_written = sim_cycle;
+  	  sys_preg->is = systemCallAddress;
+  	  sys_preg->when_written = sim_cycle;
 
   	  systemCallAddress = NULL;
   	  hasSystemCall = FALSE;
