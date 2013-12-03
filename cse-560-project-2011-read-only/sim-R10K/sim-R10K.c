@@ -155,6 +155,7 @@ void CHECK_erase(int checkpoint);
 void CHECK_getActiveMaps();
 void CHECK_revert(int checkpoint);
 void CHECK_restore(int checkpoint);
+int CHECK_isInUse(int checkpoint);
 void CHECK_dumpElements();
 void CHECK_dumpBuffer();
 void CHECK_dump();
