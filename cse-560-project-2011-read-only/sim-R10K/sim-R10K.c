@@ -375,6 +375,9 @@ struct LDST_queue_t
   counter_t scount, lcount;
 };
 
+int hasSystemCall = FALSE;
+struct INSN_station_t *systemCallAddress;
+
 struct CHECK_element{
         regnum_t *mapTable;
         md_addr_t checkpointPC;
@@ -714,8 +717,9 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 }
 
 STATIC INLINE int
-CHECK_AddInstruction(){  //try to add the instruction to the current chkpnt.  If it doesn't work try to make another one.
+CHECK_AddInstruction(int insnType,struct INSN_station_t *insn){  //try to add the instruction to the current chkpnt.  If it doesn't work try to make another one.
 
+	if (insnType != ic_sys){
         if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions >=256){
                 return -1;
         }
@@ -723,23 +727,30 @@ CHECK_AddInstruction(){  //try to add the instruction to the current chkpnt.  If
         checkpoint_elements[CHECK_buffer.tail-1].total++;
         checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions++;
         checkpoint_elements[CHECK_buffer.tail-1].commitReady=FALSE;
-        return CHECK_buffer.tail-1;
+
+	}
+	else{
+		hasSystemCall = TRUE;
+		systemCallAddress = insn;
+	}
+	return CHECK_buffer.tail-1;
 }
 
 STATIC INLINE void
 CHECK_RemoveInstruction(int checkpoint, int insnType){
+	if (insnType != ic_sys){
+		checkpoint_elements[checkpoint].numberOfInstructions--;
 
-    checkpoint_elements[checkpoint].numberOfInstructions--;
+		if(insnType != ic_load && insnType != ic_store && insnType != ic_prefetch){
 
-	if(insnType != ic_load && insnType != ic_store && insnType != ic_prefetch){
+			checkpoint_elements[checkpoint].insnTypeCounter[insnType]++;
+			checkpoint_elements[checkpoint].insnCounter++;
+		}
 
-        checkpoint_elements[checkpoint].insnTypeCounter[insnType]++;
-        checkpoint_elements[checkpoint].insnCounter++;
-	}
-
-	if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
-			checkpoint_elements[checkpoint].commitReady = TRUE;
-			CHECK_tryCommit();
+		if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
+				checkpoint_elements[checkpoint].commitReady = TRUE;
+				CHECK_tryCommit();
+		}
 	}
 }
 
@@ -803,7 +814,7 @@ CHECK_getActiveMaps(){
 STATIC INLINE void
 CHECK_revert(int checkpoint){
         fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
-        //Tell the LSQ to kill everything passed this checkpoint.
+        //FIXME: Tell the LSQ to kill everything passed this checkpoint.
         //ST_remove(&LSQ, checkpoint);
         //Tell the register file to erase everything but this map table (and previous ones).
         //how to send map table?
@@ -817,12 +828,14 @@ CHECK_revert(int checkpoint){
                         CHECK_buffer.buffer[i] = -1;
                         newTail = i;
                         found = TRUE;
+                        hasSystemCall = FALSE;
+                        systemCallAddress = NULL;
                 }
 
                 if (found==TRUE){
                         CHECK_erase(CHECK_buffer.buffer[i]);
                         CHECK_buffer.buffer[i] = -1;
-                        //Squash instructions for these checkpoints here?
+                        //FIXME: Squash instructions for these checkpoints here?
                 }
         }
         CHECK_buffer.tail = newTail;
@@ -2435,11 +2448,9 @@ commit_stage(void)
       n_insn_commit_sum++;
       sim_num_insn++;
 
-<<<<<<< HEAD
+
       //FIXME: Move some of this to the writeback stage!
-=======
-      /*
->>>>>>> 22ea9d27529144b3a450c5d54babe33183c33210
+
       if (is->pdi->iclass == ic_sys)
 	{
 	  //This preg will be freed.  We will need to allocate a new one
@@ -2475,7 +2486,7 @@ commit_stage(void)
 
 	  if (is->NPC != is->PPC)
 	    n_branch_misp++;
-	}*/
+	}
 
       if (fdump)
 	{
