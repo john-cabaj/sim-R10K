@@ -316,6 +316,9 @@ struct INSN_station_t
   tag_t tag;			        /* RUU slot tag, increment to squash */
   seq_t seq;			        /* used to sort the ready list
                                            and tag inst */
+  bool_t allocate;
+  int checkpoint;
+
   struct
   {
     tick_t predicted;          /* branch predicted */
@@ -750,7 +753,7 @@ STATIC INLINE void
 CHECK_revert(int checkpoint){
         fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
         //Tell the LSQ to kill everything passed this checkpoint.
-        ST_remove(&LSQ, checkpoint);
+       // ST_remove(&LSQ, checkpoint);
         //Tell the register file to erase everything but this map table (and previous ones).
         //how to send map table?
         int newTail = 0;
@@ -773,7 +776,7 @@ CHECK_revert(int checkpoint){
         }
         CHECK_buffer.tail = newTail;
         if (found == FALSE){
-                fprintf(stdout,"Checkpoint to revert not found!!");
+                fprintf(stdout,"Checkpoint to revert %d not found!!",checkpoint);
         }
 }
 
@@ -1550,6 +1553,7 @@ sim_init(void)
   PLINK_init(MAX_PREG_LINKS);
   INSN_init();
   LDST_init();
+  CHECK_Init();
 }
 
 /* load program into simulated state */
@@ -2531,8 +2535,9 @@ writeback_stage(void)
       preg->when_written = is->when.completed;
 
 	  ///////////////////////////////////////////////////////////////////////////
-	  /* 				 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
+	  /* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 	  ///////////////////////////////////////////////////////////////////////////
+     // CHECK_RemoveInstruction(is->checkpoint);
 
       /* Are we resolving a mis-predicted branch? */
       if (is->f_bmisp)
@@ -2550,8 +2555,9 @@ writeback_stage(void)
 	  IFQ_recover(is);
 
 	  ///////////////////////////////////////////////////////////////////////////
-	  /* 			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 		   */
+	  /* TODO:			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 		   */
 	  ///////////////////////////////////////////////////////////////////////////
+	  //CHECK_revert(is->checkpoint);
 
 	  /* recover branch predictor state */
 	  if (bpred)
@@ -2761,8 +2767,9 @@ schedule_stage(void)
 	      IFQ_recover(lis_prev);
 
 		  ///////////////////////////////////////////////////////////////////////////
-	      /* 				  RECOVER A CHECKPOINT ON STORE PROBLEM 		   	   */
+	      /* TODO:			  RECOVER A CHECKPOINT ON STORE PROBLEM 		   	   */
 		  ///////////////////////////////////////////////////////////////////////////
+	      //CHECK_revert(lis->checkpoint);
 
 	      if (bpred)
 		bpred_recover(bpred, lis_prev->PC, lis_prev->pdi->poi.op,
@@ -3063,6 +3070,31 @@ rename_stage(void)
       struct INSN_station_t *is = IFQ.head;
       struct preg_t *preg = NULL;
       int dep = 0;
+      int decode_checkpoint = -1;
+
+      ///////////////////////////////////////////////////////////////////////////
+	  /* 				TRY ADDING INSTRUCTION TO CHECKPOINT				   */
+	  ///////////////////////////////////////////////////////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////
+	  /* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LIMIT */
+	  ///////////////////////////////////////////////////////////////////////////
+	  //TODO: MODIFY FOR CORRECTNESS
+      /*if(is->allocate) {
+		  if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+			  //TODO: STALL
+			  break;
+		  }
+      }
+
+	  if((decode_checkpoint = CHECK_AddInstruction()) == -1) {
+		  if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+			  //TODO: STALL
+			  break;
+		  }
+		  else {
+			  decode_checkpoint = CHECK_AddInstruction();
+		  }
+	  }*/
 
       /* un-acceptable path */
       if (!sched_spec && f_wrong_path)
@@ -3091,6 +3123,8 @@ rename_stage(void)
       rename_n++;
       n_insn_rename++;
 
+      //TODO:
+      /*is->checkpoint = decode_checkpoint;*/
       /* move insn from IFQ to ROB */
       INSN_remove(&IFQ, is);
       INSN_enqueue(&ROB, is);
@@ -3159,6 +3193,7 @@ rename_stage(void)
 	}
     }
 }
+
 
 /* fetch up as many instruction as one branch prediction and one cache line
    access will support without overflowing the IFETCH -> DISPATCH QUEUE */
@@ -3233,6 +3268,13 @@ fetch_stage(void)
       /* adjust instruction fetch queue */
       INSN_enqueue(&IFQ, is);
 
+
+      /////////////////////////////////////////////////////////////////
+      /* TODO: SET BRANCH CONFIDENCE FOR INSTRUCTION                 */
+      /////////////////////////////////////////////////////////////////
+      /*is->allocate = FALSE;*/
+
+
       /* get the next predicted fetch address; only use branch predictor
 	 result for branches (assumes pre-decode bits) */
       is->PPC = fetch_PC = is->PC + sizeof(md_inst_t);
@@ -3242,15 +3284,6 @@ fetch_stage(void)
 	    bpred_lookup(bpred, is->PC, is->pdi->poi.op, &is->bp_pre_state);
 
 	  is->when.predicted = sim_cycle;
-
-	  ///////////////////////////////////////////////////////////////////////////
-	  /* 				TRY ADDING INSTRUCTION TO CHECKPOINT				   */
-	  ///////////////////////////////////////////////////////////////////////////
-
-
-	  ///////////////////////////////////////////////////////////////////////////
-	  /* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LIMIT */
-	  ///////////////////////////////////////////////////////////////////////////
 
 	  /* discontinuous fetch => break until next cycle */
 	  if (is->PPC != is->PC + sizeof(md_inst_t))
