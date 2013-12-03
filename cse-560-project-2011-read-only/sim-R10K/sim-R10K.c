@@ -2330,8 +2330,8 @@ commit_store(struct INSN_station_t *is)
 {
   struct LDST_station_t *store = LSQ.head;
 
-  //[]if(store->commit)
-  //[]{
+  /**/if(store->commit)
+  /**/{
 	  assert(is->ls == store);
 
 	  /* go to the data cache */
@@ -2351,9 +2351,9 @@ commit_store(struct INSN_station_t *is)
 			 (byte_t *)&store->val.q, MD_DATAPATH_WIDTH);
 
 	  return TRUE;
-  //[]}
-  //[]else
-	  //[]return FALSE;*/
+  /**/}
+  /**/else
+	  /**/return FALSE;
 }
 
 /* this function commits the results of the oldest completed entries from the
@@ -2364,10 +2364,10 @@ commit_stage(void)
   int commit_n = 0, commit_store_n = 0;
   /* all values must be retired to the architected reg file in
      program order */
-  while (ROB.head &&
+  while (LSQ->head &&
 	 commit_n < commit_width)
     {
-      struct INSN_station_t *is = ROB.head;
+      struct INSN_station_t *is = LSQ->head->is;
       struct preg_t *preg = &pregs[is->pregnums[DEP_O1]];
       struct preg_t *freg = &pregs[is->fregnum];
 
@@ -2401,35 +2401,43 @@ commit_stage(void)
       n_insn_commit_sum++;
       sim_num_insn++;
 
+      /*
       if (is->pdi->iclass == ic_sys)
 	{
-	  /* This preg will be freed.  We will need to allocate a new one */
+	  //This preg will be freed.  We will need to allocate a new one
 	  preg->is = NULL;
-	  /* Do the syscall */
+	  //Do the syscall
 	  exec_insn(is);
-	  /* Allocate new physical register */
+	  //Allocate new physical register
 	  is->pregnums[DEP_O1] = lregs[is->pdi->lregnums[DEP_O1]];
 	  preg = &pregs[is->pregnums[DEP_O1]];
 
 	  preg->is = is;
 	  preg->when_written = sim_cycle;
-	}
+	}*/
 
+      /*
       else if (is->pdi->iclass == ic_ctrl)
 	{
-	  /* Update branch predictor */
+	  //Update branch predictor
 	  if (bpred)
 	    bpred_update(bpred,
-			 /* branch address */is->PC,
-			 /* instruction */is->pdi->poi.op,
-			 /* actual target address */is->NPC,
-			 /* target address */is->TPC,
-			 /* predicted target address */is->PPC,
-			 /* update info */&is->bp_pre_state);
+			 //branch address
+	    		is->PC,
+			 //instruction
+	    		is->pdi->poi.op,
+			 //actual target address
+	    		is->NPC,
+			 //target address
+	    		is->TPC,
+			 //predicted target address
+	    		is->PPC,wp
+			 //update info
+	    		&is->bp_pre_state);
 
 	  if (is->NPC != is->PPC)
 	    n_branch_misp++;
-	}
+	}*/
 
       if (fdump)
 	{
@@ -2604,7 +2612,7 @@ writeback_stage(void)
 	  ///////////////////////////////////////////////////////////////////////////
 	  /* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 	  ///////////////////////////////////////////////////////////////////////////
-     //[]CHECK_RemoveInstruction(is->checkpoint);
+     /**/CHECK_RemoveInstruction(is->checkpoint);
 
       /* Are we resolving a mis-predicted branch? */
       if (is->f_bmisp)
@@ -2624,9 +2632,9 @@ writeback_stage(void)
 	  ///////////////////////////////////////////////////////////////////////////
 	  /* TODO:			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 	   */
 	  ///////////////////////////////////////////////////////////////////////////
-      //[]CHECK_dumpElements();
-	  //[]fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
-	  //[]CHECK_revert(is->checkpoint);
+      /**/CHECK_dumpElements();
+	  /**/fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
+	  /**/CHECK_revert(is->checkpoint);
 
 	  /* recover branch predictor state */
 	  if (bpred)
@@ -2838,8 +2846,8 @@ schedule_stage(void)
 		  ///////////////////////////////////////////////////////////////////////////
 	      /* TODO:			  RECOVER A CHECKPOINT ON STORE PROBLEM 		   	   */
 		  ///////////////////////////////////////////////////////////////////////////
-	      //[]fprintf(stdout, "CHECKPOINT REVERT - STORE ISSUES\n");
-	      //[]CHECK_revert(lis->checkpoint);
+	      /**/fprintf(stdout, "CHECKPOINT REVERT - STORE ISSUES\n");
+	      /**/CHECK_revert(lis->checkpoint);
 
 	      if (bpred)
 		bpred_recover(bpred, lis_prev->PC, lis_prev->pdi->poi.op,
@@ -3149,26 +3157,26 @@ rename_stage(void)
 	  /* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LIMIT */
 	  ///////////////////////////////////////////////////////////////////////////
 	  //TODO: MODIFY FOR CORRECTNESS
-      //[]if(is->allocate) {
-		  //[]if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+      /**/if(is->allocate) {
+		  /**/if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
 			  //TODO: STALL
-			  //[]fprintf(stdout, "OUT OF CHECKPOINTS - BRANCH\n");
-			  //[]break;
-		  //[]}
-		  //[]fprintf(stdout, "SUCCESSFUL BRANCH CHECKPOINT ALLOCATE\n");
-      //[]}
+			  /**/fprintf(stdout, "OUT OF CHECKPOINTS - BRANCH\n");
+			  /**/break;
+		  /**/}
+		  /**/fprintf(stdout, "SUCCESSFUL BRANCH CHECKPOINT ALLOCATE\n");
+      /**/}
 
-	  //[]if((decode_checkpoint = CHECK_AddInstruction()) == -1) {
-		  //[]if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+	  /**/if((decode_checkpoint = CHECK_AddInstruction()) == -1) {
+		  /**/if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
 			  //TODO: STALL
-			  //[]fprintf(stdout, "OUT OF CHECKPOINTS - INSTR\n");
-			  //[]break;
-		  //[]}
-		  //[]else {
-			  //[]decode_checkpoint = CHECK_AddInstruction();
-			  //[]fprintf(stdout, "SUCCESSFUL INSTR CHECKPOINT ALLOCATE\n");
-		  //[]}
-	  //[]}
+			  /**/fprintf(stdout, "OUT OF CHECKPOINTS - INSTR\n");
+			  /**/break;
+		  /**/}
+		  /**/else {
+			  /**/decode_checkpoint = CHECK_AddInstruction();
+			  /**/fprintf(stdout, "SUCCESSFUL INSTR CHECKPOINT ALLOCATE\n");
+		  /**/}
+	  /**/}
 
       /* un-acceptable path */
       if (!sched_spec && f_wrong_path)
@@ -3198,7 +3206,7 @@ rename_stage(void)
       n_insn_rename++;
 
       //TODO:
-      //[]is->checkpoint = decode_checkpoint;
+      /**/is->checkpoint = decode_checkpoint;
       /* move insn from IFQ to ROB */
       INSN_remove(&IFQ, is);
       //INSN_enqueue(&ROB, is);
@@ -3346,7 +3354,7 @@ fetch_stage(void)
       /////////////////////////////////////////////////////////////////
       /* TODO: SET BRANCH CONFIDENCE FOR INSTRUCTION                 */
       /////////////////////////////////////////////////////////////////
-      //[]is->allocate = FALSE;
+      /**/is->allocate = FALSE;
 
 
       /* get the next predicted fetch address; only use branch predictor
@@ -3360,9 +3368,9 @@ fetch_stage(void)
 	  is->when.predicted = sim_cycle;
 
 	  //TODO: BRANCH PREDICTION
-	  	  //[]if(confidence_predict(is->PPC) < 15) {
-	  		  //[]is->allocate = TRUE;
-	  	  //[]}
+	  	  /**/if(confidence_predict(is->PPC) < 15) {
+	  		  /**/is->allocate = TRUE;
+	  	  /**/}
 
 	  /* discontinuous fetch => break until next cycle */
 	  if (is->PPC != is->PC + sizeof(md_inst_t))
