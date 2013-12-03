@@ -116,6 +116,7 @@
 // #define RENAME_DEBUG
 #define INLINE
 #define STATIC
+#define SIZE 2048
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -432,7 +433,7 @@ static int rs_num;
 /* instruction fetch queue (IFQ) */
 static struct INSN_queue_t IFQ;
 /* reorder buffer (ROB) */
-static struct INSN_queue_t ROB;
+//static struct INSN_queue_t ROB;
 /* load-store queue (LSQ) */
 static struct LDST_queue_t LSQ;
 
@@ -467,7 +468,7 @@ STATIC void
 INSN_init(void)
 {
   int i;
-  int INSN_size = IFQ.size + ROB.size + 1;
+  int INSN_size = IFQ.size + SIZE + 1;
 
   INSN_flist = (struct INSN_station_t *)mycalloc(INSN_size, sizeof(struct INSN_station_t));
 
@@ -1304,10 +1305,10 @@ sim_reg_options(struct opt_odb_t *odb)
 
   /* sched options */
 
-  opt_reg_int(odb, "-sched:rob:size",
-	      "re-order buffer size",
-	      &ROB.size, /* default */64,
-	      /* print */TRUE, /* format */NULL);
+  //opt_reg_int(odb, "-sched:rob:size",
+	//      "re-order buffer size",
+	  //    &ROB.size, /* default */64,
+	    //  /* print */TRUE, /* format */NULL);
 
   opt_reg_int(odb, "-sched:ldq:size",
 	      "load queue size",
@@ -1432,7 +1433,7 @@ sim_check_options(void)        /* command line arguments */
 
 
   if (IFQ.size < 1)  fatal("inst fetch queue size must be positive");
-  if (ROB.size < 1) fatal("ROB size must be a positive number > 1");
+  //if (ROB.size < 1) fatal("ROB size must be a positive number > 1");
   if (LSQ.lsize < 1) fatal("LSQ size must be a positive number > 1");
   if (LSQ.ssize < 1) fatal("LSQ size must be a positive number > 1");
 
@@ -2139,19 +2140,21 @@ IFQ_cleanup(void)
 
 /* recover processor microarchitecture state back to point of the
    mis-predicted branch at RUU[BRANCH_INDEX] */
+
+/*
 STATIC void
 ROB_recover(struct INSN_station_t *recover_is,
 	    bool_t f_bmisp)
 {
   int n_recover = 0;
-  /* recover from the tail of the RUU towards the head until the branch index
-     is reached, this direction ensures that the LSQ can be synchronized with
-     the RUU */
+  //recover from the tail of the RUU towards the head until the branch index
+   //is reached, this direction ensures that the LSQ can be synchronized with
+     //the RUU
 
   if (!ROB.tail)
     panic("empty RUU");
 
-  /* traverse to older insts until the mispredicted branch is encountered */
+  //traverse to older insts until the mispredicted branch is encountered
   while (ROB.tail && ROB.tail != recover_is)
     {
       struct INSN_station_t *is = ROB.tail;
@@ -2159,7 +2162,7 @@ ROB_recover(struct INSN_station_t *recover_is,
 
       assert(preg->pregnum == is->pregnums[DEP_O1] && preg->is == is);
 
-      /* is this operation an effective addr calc for a load or store? */
+      //is this operation an effective addr calc for a load or store?
       if (is->pdi->iclass == ic_store || is->pdi->iclass == ic_load || is->pdi->iclass == ic_prefetch)
 	{
 	  struct LDST_station_t *ls = LSQ.tail;
@@ -2185,16 +2188,17 @@ ROB_recover(struct INSN_station_t *recover_is,
     }
 
   rename_resume = sim_cycle + DIV_ROUND_UP(n_recover, recover_width);
-}
+}*/
 
+/*
 STATIC void
 ROB_cleanup(void)
 {
-  /* recover from the tail of the RUU towards the head until the branch index
-     is reached, this direction ensures that the LSQ can be synchronized with
-     the RUU */
+  //recover from the tail of the RUU towards the head until the branch index
+    // is reached, this direction ensures that the LSQ can be synchronized with
+    // the RUU
 
-  /* traverse to older insts until the mispredicted branch is encountered */
+  //traverse to older insts until the mispredicted branch is encountered
   while (ROB.tail)
     {
       struct INSN_station_t *is = ROB.tail;
@@ -2202,7 +2206,7 @@ ROB_cleanup(void)
 
       assert(preg->is == is);
 
-      /* is this operation an effective addr calc for a load or store? */
+      //is this operation an effective addr calc for a load or store?
       if (is->pdi->iclass == ic_store || is->pdi->iclass == ic_load)
 	{
 	  struct LDST_station_t *ls = LSQ.tail;
@@ -2224,7 +2228,7 @@ ROB_cleanup(void)
       INSN_remove(&ROB, is);
       INSN_free(is);
     }
-}
+}*/
 
 /*
  * the ready instruction queue implementation follows, the ready instruction
@@ -2326,8 +2330,8 @@ commit_store(struct INSN_station_t *is)
 {
   struct LDST_station_t *store = LSQ.head;
 
-  //if(store->commit)
-  //{
+  //[]if(store->commit)
+  //[]{
 	  assert(is->ls == store);
 
 	  /* go to the data cache */
@@ -2347,9 +2351,9 @@ commit_store(struct INSN_station_t *is)
 			 (byte_t *)&store->val.q, MD_DATAPATH_WIDTH);
 
 	  return TRUE;
-  //}
-  /*else
-	  return FALSE;*/
+  //[]}
+  //[]else
+	  //[]return FALSE;*/
 }
 
 /* this function commits the results of the oldest completed entries from the
@@ -2614,7 +2618,7 @@ writeback_stage(void)
 	  is->when.resolved = sim_cycle;
 
 	  /* recover ROB and IFQ, and steer fetch to correct path */
-	  ROB_recover(is, /* f_bmisp */TRUE);
+	  //ROB_recover(is, /* f_bmisp */TRUE);
 	  IFQ_recover(is);
 
 	  ///////////////////////////////////////////////////////////////////////////
@@ -2828,7 +2832,7 @@ schedule_stage(void)
 		cht_enter(cht, lis->PC, store_dist);
 
 	      /* recover ROB, IFQ, and branch predictor starting from lis */
-	      ROB_recover(lis_prev, /* f_bmisp */FALSE);
+	      //ROB_recover(lis_prev, /* f_bmisp */FALSE);
 	      IFQ_recover(lis_prev);
 
 		  ///////////////////////////////////////////////////////////////////////////
@@ -3171,8 +3175,8 @@ rename_stage(void)
 	break;
 
       /* ROB full */
-      if (ROB.num == ROB.size)
-	break;
+      /*if (ROB.num == ROB.size)
+	break;*/
 
       /* LDQ full */
       if ((is->pdi->iclass == ic_load || is->pdi->iclass == ic_prefetch) && LSQ.lnum == LSQ.lsize)
@@ -3187,8 +3191,8 @@ rename_stage(void)
 	break;
 
       /* don't let anyone come in if a syscall is in the machine */
-      if (ROB.num > 0 && ROB.tail->pdi->iclass == ic_sys)
-	break;
+      /*if (ROB.num > 0 && ROB.tail->pdi->iclass == ic_sys)
+	break;*/
 
       rename_n++;
       n_insn_rename++;
@@ -3197,7 +3201,7 @@ rename_stage(void)
       //[]is->checkpoint = decode_checkpoint;
       /* move insn from IFQ to ROB */
       INSN_remove(&IFQ, is);
-      INSN_enqueue(&ROB, is);
+      //INSN_enqueue(&ROB, is);
 
       /* timing stats */
       is->f_wrong_path = f_wrong_path;
@@ -3468,7 +3472,7 @@ sim_sample_on(unsigned long long n_insn)
     }
 
   /* blow away all transient state */
-  ROB_cleanup();
+  //ROB_cleanup();
   IFQ_cleanup();
   PLINK_purge();
 
