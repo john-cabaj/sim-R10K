@@ -609,8 +609,7 @@ LDST_remove(struct LDST_queue_t *q,
 
 /* setting all commits of stores */
 STATIC INLINE void
-ST_commits(struct LDST_queue_t *q,
-		int checkpoint)
+ST_commits(struct LDST_queue_t *q, int checkpoint)
 {
 	/* head of LSQ */
 	struct LDST_station_t *ls = q->head;
@@ -631,8 +630,7 @@ ST_commits(struct LDST_queue_t *q,
 
 /* remove invalid stores on checkpoint recovery */
 STATIC INLINE void
-ST_remove(struct LDST_queue_t *q,
-		int checkpoint)
+ST_remove(struct LDST_queue_t *q, int checkpoint)
 {
 	/* head of LSQ */
 	struct LDST_station_t *ls = q->head;
