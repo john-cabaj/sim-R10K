@@ -284,6 +284,12 @@ struct preg_t
   int use;
   /* unmapped flag */
   int unmapped;
+
+  /* checkpoint associated with the physical register. When the checkpoint commits, check if the register can be freed */
+  int checkpoint;
+
+  /* count the number of instructions reading from this register. If this is 0, checkoint has committed and a new link from the logical register exist, free this register */
+  int read_counter;
 };
 
 /* INSN_station_t are instruction descriptors, which are used as slot
@@ -374,6 +380,7 @@ struct CHECK_element{
         int numberOfInstructions;
         int commitReady;
         int inUse;
+        int total;
 };
 
 struct CHECK_buff{
@@ -660,8 +667,10 @@ CHECK_Init(){
         }
         CHECK_buffer.tail = 0;
 //      CHECK_buffer.buffer[0] = 0;
-
+        CHECK_Allocate(lregs, 0);
 }
+
+static int failures = 0;
 
 STATIC INLINE int
 CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
@@ -678,13 +687,19 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
                                 checkpoint_elements[i].checkpointPC = checkpointPC;
                                 checkpoint_elements[i].commitReady = FALSE;
                                 checkpoint_elements[i].numberOfInstructions = 0;
+                                checkpoint_elements[i].total = 0;
                                 break;
                         }
                 }
+                fprintf(stdout, "CHECKPOINT %d ALLOCATED\n", CHECK_buffer.tail-1);
                 return TRUE;
         }
         else{
                 //The buffer is full.  Add to already allocated checkpoint.
+        		fprintf(stdout, "CHECKPOINT ALLOCATE FULL\n");
+        		failures++;
+        		if(failures >10)
+        			panic("CHECKPOINT ALLOCATE FAILURE");
                 return FALSE;
         }
 }
@@ -696,6 +711,7 @@ CHECK_AddInstruction(){  //try to add the instruction to the current chkpnt.  If
                 return -1;
         }
 
+        checkpoint_elements[CHECK_buffer.tail-1].total++;
         checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions++;
         checkpoint_elements[CHECK_buffer.tail-1].commitReady=FALSE;
         return CHECK_buffer.tail-1;
@@ -753,7 +769,7 @@ STATIC INLINE void
 CHECK_revert(int checkpoint){
         fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
         //Tell the LSQ to kill everything passed this checkpoint.
-       // ST_remove(&LSQ, checkpoint);
+        //ST_remove(&LSQ, checkpoint);
         //Tell the register file to erase everything but this map table (and previous ones).
         //how to send map table?
         int newTail = 0;
@@ -778,6 +794,7 @@ CHECK_revert(int checkpoint){
         if (found == FALSE){
                 fprintf(stdout,"Checkpoint to revert %d not found!!",checkpoint);
         }
+        CHECK_dumpElements();
 }
 
 //print everything!
@@ -791,7 +808,7 @@ CHECK_dumpElements(){
                 fprintf(stdout,"checkpoint number of instructions: %d\n", checkpoint_elements[i].numberOfInstructions);
                 fprintf(stdout,"checkpoint commit ready: %d\n", checkpoint_elements[i].commitReady);
                 fprintf(stdout,"checkpoint in use: %d\n", checkpoint_elements[i].inUse);
-
+                fprintf(stdout,"total instructions in checkpoint: %d\n", checkpoint_elements[i].total);
         }
 }
 
@@ -810,35 +827,8 @@ CHECK_dump(){
         CHECK_dumpElements();
         CHECK_dumpBuffer();
 }
-//Don't need this one?  This can be modified to do 2 at once.
-STATIC INLINE void
-CHECK_restore(int checkpoint){
 
-        int found = FALSE;
-        int i;
-        int n;
-        for (i = 0;i<CHECK_buffer.tail;i++){
-                if (CHECK_buffer.buffer[i]==checkpoint){
-                        found = TRUE;
-                        for (n = i; n < CHECK_buffer.tail; n++){
-                                CHECK_revert(CHECK_buffer.buffer[n]);
-                        }
-                        break;
-                }
-        }
-
-
-
-        if (found != TRUE){
-                fprintf(stdout,"can't find the checkpoint to revert!");
-        }
-        //pass the oldest checkpoint to restore to the LSQ so it can erase everything from there.
-
-
-        //restore the map table in the physical register file.
-
-}
-
+/*
 STATIC INLINE void
 confidence_update(int PC, int taken)
 {
@@ -897,6 +887,32 @@ confidence_init()
 		{
 			confidence_counter[i][j] = 0;
 		}
+	}
+}
+*/
+
+static int numPredicted = 0;
+static int giveLowPrediction = FALSE;
+
+STATIC INLINE void
+confidence_update(int PC, int taken){
+
+	numPredicted++;
+	if (numPredicted>99){
+		numPredicted = 0;
+		giveLowPrediction = TRUE;
+	}
+
+}
+
+STATIC INLINE int
+confidence_predict(int PC){
+	if (giveLowPrediction == TRUE){
+		giveLowPrediction = FALSE;
+return 1;
+	}
+	else{
+		return 16;
 	}
 }
 
@@ -1644,6 +1660,51 @@ regs_alloc(void)
   return preg->pregnum;
 }
 
+// code_added function to add a physical register to the free list.
+STATIC INLINE void
+add_regs_free_list (regnum_t *map_table, int checkpoint)
+{
+	// for every physical register, check for mapings to a logical register.
+	// If any, thats the latest. let that be. If no, check the checkpoint and number of readers. Add it to the free list if checkpoint has been committed and no readers left.
+
+	regnum_t pregnum;
+	regnum_t lregnum;
+	int mapping = 0;
+
+	for (pregnum = 0; pregnum < rename_pregs_num; pregnum++)
+	{
+		struct preg_t *preg = &pregs[pregnum];
+
+		//if ( (pregs[pregnum]->f_allocated) & (pregs[pregnum]->read_counter == 0) & (pregs[pregnum]->checkpoint == checkpoint) )
+		if ( (preg->f_allocated) & (preg->read_counter == 0) & (preg->checkpoint == checkpoint) )
+
+		{
+			//check here if there is a latest mapping in the map table. if not, make f_allocated false and add to free list.
+			mapping = 0;
+			for(lregnum = 0; lregnum < MD_TOTAL_REGS; lregnum ++)
+			{
+				if( (lregs[lregnum] = pregnum) & (mapping!= 1) )
+				{
+					mapping = 1;
+				}
+			}
+
+			if (mapping == 0) //mapping is 0, free the reg
+			{
+				preg->f_allocated = FALSE;
+				// free output dependence tree
+				PLINK_free_list(preg->odeps_head);
+				preg->odeps_head = preg->odeps_tail = NULL;
+
+				// Add to free list
+				LE_CHAIN(preg, flist, &pregs_flist);
+
+				preg->tag++;
+			}
+		}
+	}
+}
+
 /* return register to free list */
 STATIC INLINE void
 regs_free(regnum_t fregnum)
@@ -1806,6 +1867,8 @@ regs_init(void)
     {
       struct preg_t *preg = &pregs[pregnum];
       preg->pregnum = pregnum;
+      //code_added to initialize the checkpoint associated with the physical register
+      preg->checkpoint = -1;
       LE_CHAIN(preg, flist, &pregs_flist);
     }
 
@@ -2537,7 +2600,7 @@ writeback_stage(void)
 	  ///////////////////////////////////////////////////////////////////////////
 	  /* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 	  ///////////////////////////////////////////////////////////////////////////
-     // CHECK_RemoveInstruction(is->checkpoint);
+     //[]CHECK_RemoveInstruction(is->checkpoint);
 
       /* Are we resolving a mis-predicted branch? */
       if (is->f_bmisp)
@@ -2555,9 +2618,11 @@ writeback_stage(void)
 	  IFQ_recover(is);
 
 	  ///////////////////////////////////////////////////////////////////////////
-	  /* TODO:			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 		   */
+	  /* TODO:			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 	   */
 	  ///////////////////////////////////////////////////////////////////////////
-	  //CHECK_revert(is->checkpoint);
+      //[]CHECK_dumpElements();
+	  //[]fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
+	  //[]CHECK_revert(is->checkpoint);
 
 	  /* recover branch predictor state */
 	  if (bpred)
@@ -2769,7 +2834,8 @@ schedule_stage(void)
 		  ///////////////////////////////////////////////////////////////////////////
 	      /* TODO:			  RECOVER A CHECKPOINT ON STORE PROBLEM 		   	   */
 		  ///////////////////////////////////////////////////////////////////////////
-	      //CHECK_revert(lis->checkpoint);
+	      //[]fprintf(stdout, "CHECKPOINT REVERT - STORE ISSUES\n");
+	      //[]CHECK_revert(lis->checkpoint);
 
 	      if (bpred)
 		bpred_recover(bpred, lis_prev->PC, lis_prev->pdi->poi.op,
@@ -3079,22 +3145,26 @@ rename_stage(void)
 	  /* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LIMIT */
 	  ///////////////////////////////////////////////////////////////////////////
 	  //TODO: MODIFY FOR CORRECTNESS
-      /*if(is->allocate) {
-		  if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+      //[]if(is->allocate) {
+		  //[]if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
 			  //TODO: STALL
-			  break;
-		  }
-      }
+			  //[]fprintf(stdout, "OUT OF CHECKPOINTS - BRANCH\n");
+			  //[]break;
+		  //[]}
+		  //[]fprintf(stdout, "SUCCESSFUL BRANCH CHECKPOINT ALLOCATE\n");
+      //[]}
 
-	  if((decode_checkpoint = CHECK_AddInstruction()) == -1) {
-		  if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
+	  //[]if((decode_checkpoint = CHECK_AddInstruction()) == -1) {
+		  //[]if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
 			  //TODO: STALL
-			  break;
-		  }
-		  else {
-			  decode_checkpoint = CHECK_AddInstruction();
-		  }
-	  }*/
+			  //[]fprintf(stdout, "OUT OF CHECKPOINTS - INSTR\n");
+			  //[]break;
+		  //[]}
+		  //[]else {
+			  //[]decode_checkpoint = CHECK_AddInstruction();
+			  //[]fprintf(stdout, "SUCCESSFUL INSTR CHECKPOINT ALLOCATE\n");
+		  //[]}
+	  //[]}
 
       /* un-acceptable path */
       if (!sched_spec && f_wrong_path)
@@ -3124,7 +3194,7 @@ rename_stage(void)
       n_insn_rename++;
 
       //TODO:
-      /*is->checkpoint = decode_checkpoint;*/
+      //[]is->checkpoint = decode_checkpoint;
       /* move insn from IFQ to ROB */
       INSN_remove(&IFQ, is);
       INSN_enqueue(&ROB, is);
@@ -3272,7 +3342,7 @@ fetch_stage(void)
       /////////////////////////////////////////////////////////////////
       /* TODO: SET BRANCH CONFIDENCE FOR INSTRUCTION                 */
       /////////////////////////////////////////////////////////////////
-      /*is->allocate = FALSE;*/
+      //[]is->allocate = FALSE;
 
 
       /* get the next predicted fetch address; only use branch predictor
@@ -3284,6 +3354,11 @@ fetch_stage(void)
 	    bpred_lookup(bpred, is->PC, is->pdi->poi.op, &is->bp_pre_state);
 
 	  is->when.predicted = sim_cycle;
+
+	  //TODO: BRANCH PREDICTION
+	  	  //[]if(confidence_predict(is->PPC) < 15) {
+	  		  //[]is->allocate = TRUE;
+	  	  //[]}
 
 	  /* discontinuous fetch => break until next cycle */
 	  if (is->PPC != is->PC + sizeof(md_inst_t))
