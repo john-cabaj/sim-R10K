@@ -1759,6 +1759,69 @@ add_regs_free_list (regnum_t *map_table, int checkpoint)
 	}
 }
 
+STATIC INLINE void
+update_regs_checkpoint (int checkpoint)
+{
+	// for every physical register tht has a mapping to a logical register, update the checkpoint number associated with the physical register.
+
+	regnum_t pregnum;
+	regnum_t lregnum;
+	int mapping = 0;
+
+	for (pregnum = 0; pregnum < rename_pregs_num; pregnum++)
+	{
+		struct preg_t *preg = &pregs[pregnum];
+
+		//check here if there is a mapping in the map table. if so, update checkpoint field of the register.
+			mapping = 0;
+		for(lregnum = 0; lregnum < MD_TOTAL_REGS; lregnum ++)
+		{
+			if(lregs[lregnum] == pregnum)
+			{
+				preg->checkpoint = checkpoint;
+			}
+		}
+	}
+}
+
+STATIC INLINE void
+revert_checkpoint (int checkpoint, regnum_t *map_table)
+{
+	//check for eveyr checkpoint if it is in use. If not in use, all the physical registers in its map table must be freed.
+	//Revert the current map table back to the checkpoint which is being reverted back to.
+
+	//loop through all map table entries and change all lregs.
+
+	int lregnum;
+	for(lregnum = 0; lregnum < MD_TOTAL_REGS; lregnum ++)
+		{
+		lregs[lregnum] = map_table[lregnum];
+		}
+
+	// loop through all physical regs and free those not in an active checkpoint.
+
+	int pregnum;
+	for (pregnum = 0; pregnum < rename_pregs_num; pregnum++)
+	{
+		struct preg_t *preg = &pregs[pregnum];
+		if( ! (CHECK_isInUse(preg->checkpoint)) )
+		{
+			//this preg belongs to a checkpoint not in use. The reg must be added to the free list.
+			preg->f_allocated = FALSE;
+			preg->checkpoint = -1;
+
+			// free output dependence tree
+			PLINK_free_list(preg->odeps_head);
+			preg->odeps_head = preg->odeps_tail = NULL;
+
+			// Add to free list
+			LE_CHAIN(preg, flist, &pregs_flist);
+
+			preg->tag++;
+		}
+	}
+}
+
 /* return register to free list */
 STATIC INLINE void
 regs_free(regnum_t fregnum)
