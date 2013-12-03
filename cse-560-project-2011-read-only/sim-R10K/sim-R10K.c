@@ -717,10 +717,10 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 }
 
 STATIC INLINE int
-CHECK_AddInstruction(int insnType,struct INSN_station_t *insn){  //try to add the instruction to the current chkpnt.  If it doesn't work try to make another one.
+CHECK_AddInstruction(int insnType, struct INSN_station_t *insn){  //try to add the instruction to the current chkpnt.  If it doesn't work try to make another one.
 
 	if (insnType != ic_sys){
-        if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions >=256){
+        if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions >=256 || CHECK_buffer.tail == 0){
                 return -1;
         }
 
