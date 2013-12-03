@@ -2435,11 +2435,8 @@ commit_stage(void)
       n_insn_commit_sum++;
       sim_num_insn++;
 
-<<<<<<< HEAD
       //FIXME: Move some of this to the writeback stage!
-=======
       /*
->>>>>>> 22ea9d27529144b3a450c5d54babe33183c33210
       if (is->pdi->iclass == ic_sys)
 	{
 	  //This preg will be freed.  We will need to allocate a new one
@@ -3237,8 +3234,8 @@ rename_stage(void)
 	break;
 
       /* don't let anyone come in if a syscall is in the machine */
-      /*if (ROB.num > 0 && ROB.tail->pdi->iclass == ic_sys)
-	break;*/
+      if (hasSystemCall)
+	break;
 
       rename_n++;
       n_insn_rename++;
