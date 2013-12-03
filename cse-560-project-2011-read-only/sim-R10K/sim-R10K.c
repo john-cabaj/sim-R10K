@@ -146,6 +146,7 @@
 #include "adisambig.h"
 #include "fastfwd.h"
 
+//our function prototypes
 void CHECK_Init();
 int CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC);
 void CHECK_RemoveInstruction(int checkpoint, int insnType);
@@ -159,7 +160,11 @@ void CHECK_dumpBuffer();
 void CHECK_dump();
 void confidence_update();
 int confidence_predict();
+void REGS_add_regs_free_list (int checkpoint);
+void REGS_update_regs_checkpoint (int checkpoint);
+void REGS_revert_checkpoint (int checkpoint, regnum_t *map_table);
 
+//end our function prototypes
 /* simulated registers */
 static struct regs_t regs;
 
@@ -699,6 +704,9 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 				//copy the map table.
 				memcpy(checkpoint_elements[i].mapTable,mapTable,MD_TOTAL_REGS*sizeof(regnum_t));
 				checkpoint_elements[i].checkpointPC = checkpointPC;
+
+				//update the physical register file to reflect new checkpoint numbers.
+				REGS_update_regs_checkpoint(i);
 				break;
 			}
 		}
@@ -773,6 +781,10 @@ CHECK_tryCommit(){
 		n_insn_commit_sum+= checkpoint_elements[CHECK_buffer.buffer[0]].insnCounter;
 
 		CHECK_erase(CHECK_buffer.buffer[0]);
+
+		//remove checkpoint tags from the register and reclaim them if we can.
+		REGS_add_regs_free_list(CHECK_buffer.buffer[0]);
+
 		//update the map checkpoint buffer and the checkpoint itself.
 		int i;
 		for (i = 1;i<CHECK_buffer.tail;i++){
@@ -782,6 +794,7 @@ CHECK_tryCommit(){
 		}
 		CHECK_buffer.buffer[CHECK_buffer.tail-1] = -1;
 		CHECK_buffer.tail--;
+
 		CHECK_tryCommit();
 	}
 	else{
@@ -813,10 +826,12 @@ CHECK_getActiveMaps(){
 STATIC INLINE void
 CHECK_revert(int checkpoint){
 	fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
-	//FIXME: Tell the LSQ to kill everything passed this checkpoint.
-	//ST_remove(&LSQ, checkpoint);
+	//Tell the LSQ to kill everything passed this checkpoint.
+	ST_remove(&LSQ, checkpoint);
 	//Tell the register file to erase everything but this map table (and previous ones).
-	//how to send map table?
+	//Previous ones can be figured out with isInUse(int checkpoint);
+	REGS_revert_checkpoint(checkpoint,checkpoint_elements[checkpoint].mapTable);
+
 	int newTail = 0;
 	//update the checkpoint buffer.
 	int found = FALSE;
@@ -1716,7 +1731,7 @@ regs_alloc(void)
 
 // code_added function to add a physical register to the free list.
 STATIC INLINE void
-add_regs_free_list (regnum_t *map_table, int checkpoint)
+REGS_add_regs_free_list (int checkpoint)
 {
 	// for every physical register, check for mapings to a logical register.
 	// If any, thats the latest. let that be. If no, check the checkpoint and number of readers. Add it to the free list if checkpoint has been committed and no readers left.
@@ -1760,7 +1775,7 @@ add_regs_free_list (regnum_t *map_table, int checkpoint)
 }
 
 STATIC INLINE void
-update_regs_checkpoint (int checkpoint)
+REGS_update_regs_checkpoint (int checkpoint)
 {
 	// for every physical register tht has a mapping to a logical register, update the checkpoint number associated with the physical register.
 
@@ -1785,7 +1800,7 @@ update_regs_checkpoint (int checkpoint)
 }
 
 STATIC INLINE void
-revert_checkpoint (int checkpoint, regnum_t *map_table)
+REGS_revert_checkpoint (int checkpoint, regnum_t *map_table)
 {
 	//check for eveyr checkpoint if it is in use. If not in use, all the physical registers in its map table must be freed.
 	//Revert the current map table back to the checkpoint which is being reverted back to.
