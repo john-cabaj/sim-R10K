@@ -840,8 +840,22 @@ CHECK_revert(int checkpoint){
 	int found = FALSE;
 	int i;
 	for (i =0;i<=CHECK_buffer.tail;i++){
+
+		if (found==TRUE){
+			CHECK_erase(CHECK_buffer.buffer[i]);
+			//Squash instructions for this checkpoint.
+			PLINK_freeCheckpoint_list(scheduler_queue,CHECK_buffer.buffer[i]);
+			PLINK_freeCheckpoint_list(writeback_queue,CHECK_buffer.buffer[i]);
+			CHECK_buffer.buffer[i] = -1;
+
+
+		}
+
 		if (CHECK_buffer.buffer[i] == checkpoint){
 			CHECK_erase(checkpoint);
+			//Squash instructions
+			PLINK_freeCheckpoint_list(scheduler_queue,CHECK_buffer.buffer[i]);
+			PLINK_freeCheckpoint_list(writeback_queue,CHECK_buffer.buffer[i]);
 			CHECK_buffer.buffer[i] = -1;
 			newTail = i;
 			found = TRUE;
@@ -849,11 +863,7 @@ CHECK_revert(int checkpoint){
 			systemCallAddress = NULL;
 		}
 
-		if (found==TRUE){
-			CHECK_erase(CHECK_buffer.buffer[i]);
-			CHECK_buffer.buffer[i] = -1;
-			//FIXME: Squash instructions for these checkpoints here?
-		}
+
 	}
 	CHECK_buffer.tail = newTail;
 	if (found == FALSE){
