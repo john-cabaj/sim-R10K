@@ -2786,7 +2786,7 @@ writeback_stage(void)
 		preg->when_written = is->when.completed;
 
 		/* Are we resolving a mis-predicted branch? */
-		if (is->f_bmisp && (preg->tag == preg->is->tag))
+		if (is->f_bmisp)
 		{
 
 			if (is->pdi->iclass != ic_ctrl && is->pdi->poi.op != PAL_CALLSYS)
@@ -2815,11 +2815,8 @@ writeback_stage(void)
 		///////////////////////////////////////////////////////////////////////////
 		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 		///////////////////////////////////////////////////////////////////////////
-		if(preg->tag == preg->is->tag)
-		{
-			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
-			REGS_removeReader(is);
-		}
+		CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
+		REGS_removeReader(is);
 
 		/* wakeup ready instructions */
 		/* walk output list, queue up ready operations */
