@@ -698,7 +698,9 @@ static int failures = 0;
 
 STATIC INLINE int
 CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
-
+	if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions == 0 && CHECK_buffer.tail-1 >= 0){
+		return TRUE;
+	}
 	if(CHECK_buffer.tail < 7){
 		int i;
 		for (i = 0;i<8;i++){
@@ -765,7 +767,6 @@ CHECK_RemoveInstruction(int checkpoint, int insnType){
 
 		if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
 			checkpoint_elements[checkpoint].commitReady = TRUE;
-			fprintf(stdout, "HERE\n");
 			CHECK_tryCommit();
 		}
 	}
@@ -833,6 +834,8 @@ CHECK_getActiveMaps(){
 	//this will return all active registers if we need it.  Not sure that we will, though.
 }
 
+
+
 STATIC INLINE void
 CHECK_revert(int checkpoint){
 	fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
@@ -846,7 +849,7 @@ CHECK_revert(int checkpoint){
 	//update the checkpoint buffer.
 	int found = FALSE;
 	int i;
-	for (i =0;i<=CHECK_buffer.tail;i++){
+	for (i =0;i<CHECK_buffer.tail;i++){
 
 		if (found==TRUE){
 			//Squash instructions for this checkpoint.
@@ -859,20 +862,24 @@ CHECK_revert(int checkpoint){
 		}
 
 		if (CHECK_buffer.buffer[i] == checkpoint){
-			CHECK_erase(checkpoint);
+			fetch_PC = checkpoint_elements[checkpoint].checkpointPC;
+//			CHECK_erase(checkpoint);
 			//Squash instructions
 			PLINK_freeCheckpoint_list(scheduler_queue,CHECK_buffer.buffer[i]);
 			PLINK_freeCheckpoint_list(writeback_queue,CHECK_buffer.buffer[i]);
-			CHECK_buffer.buffer[i] = -1;
-			newTail = i;
+//			CHECK_buffer.buffer[i] = -1;
+			newTail = i+1;
 			found = TRUE;
+			checkpoint_elements[checkpoint].insnCounter = 0;
+			checkpoint_elements[checkpoint].numberOfInstructions = 0;
+			//FIXME: Set all the instruction stuff to 0.
 			hasSystemCall = FALSE;
 			systemCallAddress = NULL;
 		}
 
 
 	}
-	CHECK_buffer.tail = newTail;
+//	CHECK_buffer.tail = newTail;
 	if (found == FALSE){
 		fprintf(stdout,"Checkpoint to revert %d not found!!",checkpoint);
 	}
@@ -1070,6 +1077,15 @@ PLINK_free_list(struct PREG_link_t *l)
 	}
 }
 
+/*
+STATIC int
+temp(struct PREG_link_t *lc)
+{
+	fprintf(stdout, "aasdfadlfasdf: %d\n", lc->preg->is->checkpoint);
+	return lc->preg->is->checkpoint;
+
+}*/
+
 STATIC INLINE void
 PLINK_freeCheckpoint_list(struct PREG_link_t *l, int checkpoint)
 {
@@ -1079,6 +1095,7 @@ PLINK_freeCheckpoint_list(struct PREG_link_t *l, int checkpoint)
 	while (lc)
 	{
 		lf = lc;
+
 		if(lc->preg->is->checkpoint == checkpoint){
 			lc = lc->next;
 			PLINK_free(lf);
@@ -2672,6 +2689,8 @@ commit_stage(void)
 
 		//committing now
 		is->when.committed = sim_cycle;
+		fprintf(stdout, "COMMIT_STAGE COMMIT\n");
+		fprintf(stdout, "INSTRUCTION: %d FROM CHECKPOINT: %d COMMITTED PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
 
 		/* free over-written register */
 		/*if (freg->is) panic("what is this guy still doing with an IS?");
@@ -2850,6 +2869,29 @@ writeback_stage(void)
 			fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
 			CHECK_revert(is->checkpoint);
 
+			if (is->pdi->iclass == ic_ctrl)
+			{
+				//Update branch predictor
+				if (bpred)
+					bpred_update(bpred,
+							//branch address
+							is->PC,
+							//instruction
+							is->pdi->poi.op,
+							//actual target address
+							is->NPC,
+							//target address
+							is->TPC,
+							//predicted target address
+							is->PPC,
+							//update info
+							&is->bp_pre_state);
+
+				if (is->NPC != is->PPC)
+					n_branch_misp++;
+			}
+			continue;
+
 			/* recover branch predictor state */
 			if (bpred)
 				bpred_recover(bpred, is->PC, is->pdi->poi.op, is->NPC, &is->bp_pre_state);
@@ -2881,8 +2923,10 @@ writeback_stage(void)
 			ois->idep_ready[link->x.opnum] = TRUE;
 
 			/* try and schedule this instruction the next time around */
-			if (!ois->pdi->iclass == ic_nop)
+			if (!ois->pdi->iclass == ic_nop){
+				//fprintf(stdout, "NOP!!!!!!!!");
 				scheduler_enqueue(opreg);
+			}
 		}
 
 		if (is->f_rs)
@@ -2898,6 +2942,10 @@ writeback_stage(void)
 
 		/* committing now */
 		is->when.committed = sim_cycle;
+		if(is->pdi->iclass != ic_load && is->pdi->iclass != ic_store && is->pdi->iclass != ic_prefetch && is->pdi->iclass != ic_sys){
+			fprintf(stdout, "WRITEBACK_STAGE COMMIT\n");
+			fprintf(stdout, "INSTRUCTION: %d FROM CHECKPOINT: %d COMMITTED PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
+		}
 
 		if (is->pdi->iclass == ic_ctrl)
 		{
@@ -2921,7 +2969,8 @@ writeback_stage(void)
 				n_branch_misp++;
 		}
 
-		INSN_free(is);
+		if(is->pdi->iclass != ic_load && is->pdi->iclass != ic_store && is->pdi->iclass != ic_prefetch && is->pdi->iclass != ic_sys)
+			INSN_free(is);
 	}  /* for all writeback events */
 }
 
@@ -2982,7 +3031,6 @@ schedule_stage(void)
 		struct INSN_station_t *is;
 
 		nnode = node->next;
-
 		/* if link is not valid (instruction has been squashed), delete and skip */
 		if (!PLINK_valid(node) || !preg->is)
 		{
@@ -3004,6 +3052,7 @@ schedule_stage(void)
 			pnode = node;
 			continue;
 		}
+		fprintf(stdout, "/****REMOVED FROM SCHEDULE QUEUE****/ INSTRUCTION: %d CHECKPOINT: %d PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
 
 		/* Special actions for stores */
 		if (is->pdi->iclass == ic_store)
@@ -3135,9 +3184,15 @@ schedule_stage(void)
 				for (store = load->prev; store; store = store->prev)
 				{
 					struct INSN_station_t *sis = store->is;
+					fprintf(stdout, "LOADS: %d\n", LSQ.lnum);
+					fprintf(stdout, "STORES: %d\n", LSQ.snum);
+					fprintf(stdout, "LOAD CHECKPOINT: %d\n", load->is->checkpoint);
+					fprintf(stdout, "SIS CHECKPOINT: %d\n", sis->checkpoint);
 
-					if (sis->pdi->iclass != ic_store)
+
+					if (sis->pdi->iclass != ic_store){
 						continue;
+					}
 
 					/* Store has not issued and address is not ready */
 					if (sis->f_rs && !STORE_ADDR_READY(sis))
@@ -3402,6 +3457,7 @@ rename_stage(void)
 			/* insts still available from fetch unit? */
 			&& IFQ.head)
 	{
+
 		/* get the next instruction from the IFETCH -> DISPATCH queue */
 		struct INSN_station_t *is = IFQ.head;
 
@@ -3515,8 +3571,8 @@ rename_stage(void)
 
 		/* connect register dependences.  Put on scheduling queue if instruction is ready */
 		preg_connect_deps(preg);
+		fprintf(stdout, "/****ADDED TO SCHEDULE QUEUE****/ INSTRUCTION: %d CHECKPOINT: %d PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
 		scheduler_enqueue(preg);
-
 		/* this may be a mispredicted branch or jump.  Note,
 	 must test this for F_TRAP also because of longjmp */
 		if (!is->f_wrong_path &&
@@ -3531,7 +3587,9 @@ rename_stage(void)
 				is->f_bmisp = TRUE;
 			}
 		}
+
 	}
+
 }
 
 
@@ -3554,7 +3612,7 @@ fetch_stage(void)
 			IFQ.num < IFQ.size  &&
 			/* valid text address */
 			valid_text_address(mem, fetch_PC);
-	)
+)
 	{
 		md_inst_t inst;
 		struct INSN_station_t *is = NULL;
@@ -3700,25 +3758,28 @@ sim_sample_on(unsigned long long n_insn)
 	while (n_insn == 0 ||  n_insn_commit_sum < n_insn_commit_sum_beg + n_insn)
 	{
 		/* commit entries from RUU/LSQ to architected register file */
+//		fprintf(stdout,"into commit\n");
 		commit_stage();
-		//fprintf(stdout, "beginning\n");
+//		fprintf(stdout,"commit done\ninto writeback\n");
 
 		/* service result completions, also readies dependent operations */
 		/* ==> inserts operations into ready queue --> register deps resolved */
 		writeback_stage();
-
+//		fprintf(stdout,"writeback done\ninto schedule\n");
 		/* invoke scheduler to schedule ready or partially ready events.
          The two schedulers act in parallel but are written separately
          for clarity */
 		schedule_stage();
-
+//		fprintf(stdout,"schedule done\ninto rename\n");
 		/* decode and dispatch new operations */
 		/* ==> insert ops w/ no deps or all regs ready --> reg deps resolved */
 		rename_stage();
+//		fprintf(stdout,"rename complete\ninto fetch\n");
+
 
 		/* call instruction fetch unit if it is not blocked */
 		fetch_stage();
-
+//		fprintf(stdout,"out of fetch\n");
 		if (insn_limit != 0 && n_insn_commit_sum >= insn_limit)
 		{
 			myfprintf(stderr, "Reached instruction limit: %u\n", insn_limit);
