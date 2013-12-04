@@ -491,6 +491,7 @@ INSN_init(void)
 
 STATIC INLINE struct INSN_station_t *
 INSN_alloc(void)
+
 {
 	struct INSN_station_t *is = INSN_flist;
 
@@ -1023,7 +1024,6 @@ PLINK_assert(void)
 	if (n_reg_link + n_writeback_link + n_scheduler_link + n_plink != MAX_PREG_LINKS)
 		panic("leaking IS_links");
 }
-
 /* free an IS link record */
 STATIC INLINE void
 PLINK_free(struct PREG_link_t *l)
@@ -1035,6 +1035,7 @@ PLINK_free(struct PREG_link_t *l)
 	plink_num--;
 }
 
+
 /* free an IS link list */
 STATIC INLINE void
 PLINK_free_list(struct PREG_link_t *l)
@@ -1045,6 +1046,25 @@ PLINK_free_list(struct PREG_link_t *l)
 		lf = l;
 		l = l->next;
 		PLINK_free(lf);
+	}
+}
+
+STATIC INLINE void
+PLINK_freeCheckpoint_list(struct PREG_link_t *l, int checkpoint)
+{
+	struct PREG_link_t *lf;
+	struct PREG_link_t *lc;
+
+	while (l)
+	{
+		lf = lc;
+		if(lc->preg->is->checkpoint == checkpoint){
+			lc = lc->next;
+			PLINK_free(lf);
+		}
+		else{
+			lc = lc->next;
+		}
 	}
 }
 
