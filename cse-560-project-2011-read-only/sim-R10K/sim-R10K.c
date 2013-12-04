@@ -3672,6 +3672,7 @@ sim_sample_on(unsigned long long n_insn)
 	sample_mode = sample_ON;
 
 	fprintf(stderr, "sim: ** starting timing simulation");
+	fprintf(stdout, "beginning\n");
 
 	if (n_insn != 0)
 	{

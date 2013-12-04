@@ -11,13 +11,13 @@
  * This source file is distributed "as is" in the hope that it will be
  * useful.  The tool set comes with no warranty, and no author or
  * distributor accepts any responsibility for the consequences of its
- * use. 
+ * use.
  *
  * Everyone is granted permission to copy, modify and redistribute
  * this tool set under the following conditions:
  *
- *    This source code is distributed for non-commercial use only. 
- *    Please contact the maintainer for restrictions applying to 
+ *    This source code is distributed for non-commercial use only.
+ *    Please contact the maintainer for restrictions applying to
  *    commercial use.
  *
  *    Permission is granted to anyone to make or distribute copies
@@ -191,25 +191,25 @@ static void
 insn_reg_options(struct opt_odb_t * odb)
 {
   opt_reg_ulonglong(odb, "-insn:limit",
-		    "instruction limit", &insn_limit, 
+		    "instruction limit", &insn_limit,
 		    /* default */0, /* print */TRUE, /* format */NULL);
   opt_reg_ulonglong(odb, "-insn:progress",
-		    "instruction progress update interval", &insn_progress_update, 
+		    "instruction progress update interval", &insn_progress_update,
 		    /* default */100*1000*1000, /* print */TRUE, /* format */NULL);
   opt_reg_string(odb, "-insn:sample",
-                 "sampling parameters i.e. {no|<off>:<warm>:<on>}", 
+                 "sampling parameters i.e. {no|<off>:<warm>:<on>}",
 		 &insn_sample_str, "no", /* print */TRUE, /* format */NULL);
   opt_reg_string(odb, "-insn:sample:first",
-                 "first sample parameters i.e. {no|<off>:<warm>:<on>}", 
+                 "first sample parameters i.e. {no|<off>:<warm>:<on>}",
 		 &insn_sample_first_str, "no", /* print */TRUE, /* format */NULL);
   opt_reg_string(odb, "-insn:dumpfile",
                  "rundump file {<filename>|none}",
                  &insn_dumpfile, "none", /* print */TRUE, NULL);
   opt_reg_ulonglong(odb, "-insn:dumpbegin",
-	      "rundump begin insn", &insn_dumpbegin, 
+	      "rundump begin insn", &insn_dumpbegin,
 	      /* default */0, /* print */TRUE, /* format */NULL);
   opt_reg_ulonglong(odb, "-insn:dumpend",
-		    "rundump end insn", &insn_dumpend, 
+		    "rundump end insn", &insn_dumpend,
 		    /* default */0, /* print */TRUE, /* format */NULL);
 }
 
@@ -221,13 +221,13 @@ insn_check_options(void)
 
   if (!mystricmp(insn_dumpfile, "none"))
     fdump = NULL;
-  else 
+  else
     fdump = fopen(insn_dumpfile, "w+");
 
   insn_sample[sample_ON] = insn_sample[sample_OFF] = insn_sample[sample_WARM] = 0;
   if (mystricmp(insn_sample_str, "no"))
     {
-      if (sscanf(insn_sample_str, "%llu:%llu:%llu", 
+      if (sscanf(insn_sample_str, "%llu:%llu:%llu",
 		 &insn_sample[sample_OFF], &insn_sample[sample_WARM], &insn_sample[sample_ON]) != 3)
 	fatal("unrecognized sampling format '%s'", insn_sample);
     }
@@ -235,12 +235,12 @@ insn_check_options(void)
   insn_sample_first[sample_ON] = insn_sample_first[sample_OFF] = insn_sample_first[sample_WARM] = 0;
   if (mystricmp(insn_sample_first_str, "no"))
     {
-      if (sscanf(insn_sample_first_str, "%llu:%llu:%llu", 
+      if (sscanf(insn_sample_first_str, "%llu:%llu:%llu",
 		 &insn_sample_first[sample_OFF], &insn_sample_first[sample_WARM], &insn_sample_first[sample_ON]) != 3)
 	fatal("unrecognized sampling format '%s'", insn_sample_first);
     }
-}   
-		 
+}
+
 static int
 orphan_fn(int i, int argc, char **argv)
 {
@@ -283,7 +283,7 @@ sim_print_stats(FILE *fd)		/* output stream */
 
   if (!running)
     return;
-  
+
   if (fdump)
     fclose(fdump);
 
@@ -323,7 +323,7 @@ exit_now(int exit_code)
 }
 
 
-void 
+void
 sim_main(void)
 {
   sim_start();
@@ -343,15 +343,15 @@ sim_main(void)
         {
           if (insn_sample[sample_OFF] && !sim_sample_off(insn_sample[sample_OFF]))
             return;
-          
+
           if (insn_sample[sample_WARM] && !sim_sample_warmup(insn_sample[sample_WARM]))
             return;
-          
+
           if (insn_sample[sample_ON] && !sim_sample_on(insn_sample[sample_ON]))
             return;
         }
     }
-  
+
   /* simulate whatever is left */
   sim_sample_on(0);
 }
