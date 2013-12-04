@@ -895,11 +895,10 @@ CHECK_dump(){
 	CHECK_dumpBuffer();
 }
 
-/*
 STATIC INLINE void
-confidence_update(int PC, int taken)
+confidence_update (md_addr_t PC, int taken)
 {
-	PC = PC / (pow(2, 22));
+	PC = PC & 0x3FF;
 	if (taken)
 	{
 		if (confidence_counter[PC][0] < 16)
@@ -936,10 +935,10 @@ confidence_update(int PC, int taken)
 }
 
 STATIC INLINE int
-confidence_predict(int PC)
+confidence_predict (md_addr_t PC)
 {
 	int confidence;
-	PC = PC/(pow(2, 22));
+	PC = PC & 0x3FF;
 	confidence = (confidence_counter[PC][0]/confidence_counter[PC][1])*100;
 	return (confidence);
 }
@@ -956,8 +955,8 @@ confidence_init()
 		}
 	}
 }
- */
 
+/*
 static int numPredicted = 0;
 static int giveLowPrediction = FALSE;
 
@@ -981,7 +980,7 @@ confidence_predict(int PC){
 	else{
 		return 16;
 	}
-}
+}*/
 
 /* PREG_link_t management functions */
 #define PLINK_set(LINK, PREG)                                       \
@@ -2615,9 +2614,9 @@ commit_stage(void)
 		is->when.committed = sim_cycle;
 
 		/* free over-written register */
-		if (freg->is) panic("what is this guy still doing with an IS?");
+		/*if (freg->is) panic("what is this guy still doing with an IS?");
 
-		regs_free(is->fregnum);
+		regs_free(is->fregnum);*/
 
 		/* Reclaim resources of committing register */
 		/* Only for "original instance" */
@@ -2863,6 +2862,8 @@ writeback_stage(void)
 			if (is->NPC != is->PPC)
 				n_branch_misp++;
 		}
+
+		INSN_free(is);
 	}  /* for all writeback events */
 }
 
