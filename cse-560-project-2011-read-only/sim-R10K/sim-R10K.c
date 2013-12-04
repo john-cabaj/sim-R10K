@@ -251,6 +251,8 @@ struct PREG_link_t {
 	} x;
 };
 
+void PLINK_freeCheckpoint_list(struct PREG_link_t *l, int checkpoint);
+
 /* physical register: holds R10000 renamed values and dependence links
    for register scheduling.  preg_np_t and preg_list_t are structure
    for managing lists of pregs */
@@ -1954,7 +1956,8 @@ regs_rename(regnum_t lregnum)
 {
 	if (lregnum == regnum_NONE)
 		panic("shouldn't be renaming this register!");
-	struct preg_t *pregWork = &pregs[lregs[lregnum]]->read_counter++;
+	struct preg_t *pregWork = pregs;
+	pregWork[lregs[lregnum]].read_counter++;
 
 	return lregs[lregnum];
 }
