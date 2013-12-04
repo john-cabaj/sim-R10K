@@ -164,6 +164,8 @@ void REGS_add_regs_free_list (int checkpoint);
 void REGS_update_regs_checkpoint (int checkpoint);
 void REGS_revert_checkpoint (int checkpoint, regnum_t *map_table);
 
+
+
 //end our function prototypes
 /* simulated registers */
 static struct regs_t regs;
@@ -343,6 +345,8 @@ struct INSN_station_t
 		tick_t committed;          /* committed */
 	} when;         /* when did each of the timestamp  */
 };
+
+void REGS_removeReader(struct INSN_station_t *is);
 
 /* Queue of INSN_station_t: used to implement the ROB and IFQ */
 struct INSN_queue_t
@@ -1824,7 +1828,7 @@ REGS_revert_checkpoint (int checkpoint, regnum_t *map_table)
 			//this preg belongs to a checkpoint not in use. The reg must be added to the free list.
 			preg->f_allocated = FALSE;
 			preg->checkpoint = -1;
-
+			preg->read_counter = 0;
 			// free output dependence tree
 			PLINK_free_list(preg->odeps_head);
 			preg->odeps_head = preg->odeps_tail = NULL;
@@ -1835,6 +1839,18 @@ REGS_revert_checkpoint (int checkpoint, regnum_t *map_table)
 			preg->tag++;
 		}
 	}
+}
+
+STATIC INLINE void
+REGS_removeReader(struct INSN_station_t *is){
+
+	int i;
+	for (i=0; i<DEP_NUM; i++){
+		if (is->pregnums[i]!=regnum_NONE){
+			pregs[is->pregnums[i]].read_counter--;
+		}
+	}
+
 }
 
 /* return register to free list */
@@ -1911,6 +1927,7 @@ regs_rename(regnum_t lregnum)
 {
 	if (lregnum == regnum_NONE)
 		panic("shouldn't be renaming this register!");
+	struct preg_t *pregWork = &pregs[lregs[lregnum]]->read_counter++;
 
 	return lregs[lregnum];
 }
@@ -2804,6 +2821,7 @@ writeback_stage(void)
 		if(preg->tag == preg->is->tag)
 		{
 			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
+			REGS_removeReader(is);
 		}
 
 		/* wakeup ready instructions */
@@ -3347,8 +3365,9 @@ rename_stage(void)
 	{
 		/* get the next instruction from the IFETCH -> DISPATCH queue */
 		struct INSN_station_t *is = IFQ.head;
+
 		struct preg_t *preg = NULL;
-		int dep = 0;
+		int dep = 0;					//number of dependencies
 		int decode_checkpoint = -1;
 
 		/* un-acceptable path */
@@ -3406,7 +3425,6 @@ rename_stage(void)
 		rename_n++;
 		n_insn_rename++;
 
-		//TODO:
 		is->checkpoint = decode_checkpoint;
 		/* move insn from IFQ to ROB */
 		INSN_remove(&IFQ, is);
