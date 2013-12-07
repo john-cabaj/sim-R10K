@@ -844,7 +844,6 @@ CHECK_revert(int checkpoint){
 	//Tell the register file to erase everything but this map table (and previous ones).
 	//Previous ones can be figured out with isInUse(int checkpoint);
 	REGS_revert_checkpoint(checkpoint,checkpoint_elements[checkpoint].mapTable);
-
 	int newTail = 0;
 	//update the checkpoint buffer.
 	int found = FALSE;
@@ -854,7 +853,9 @@ CHECK_revert(int checkpoint){
 		if (found==TRUE){
 			//Squash instructions for this checkpoint.
 			CHECK_erase(CHECK_buffer.buffer[i]);
+			fprintf(stdout, "BEFORE\n");
 			PLINK_freeCheckpoint_list(scheduler_queue,CHECK_buffer.buffer[i]);
+			fprintf(stdout, "AFTER\n");
 			PLINK_freeCheckpoint_list(writeback_queue,CHECK_buffer.buffer[i]);
 			CHECK_buffer.buffer[i] = -1;
 
@@ -1095,6 +1096,8 @@ PLINK_freeCheckpoint_list(struct PREG_link_t *l, int checkpoint)
 	while (lc)
 	{
 		lf = lc;
+
+		fprintf(stdout, "CHECKPOINT: %d\n", lc->preg->checkpoint);
 
 		if(lc->preg->is->checkpoint == checkpoint){
 			lc = lc->next;
