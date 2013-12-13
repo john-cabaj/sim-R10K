@@ -3,21 +3,21 @@
  *
  * This file is a part of the SimpleScalar tool suite written by
  * Todd M. Austin as a part of the Multiscalar Research Project.
- *  
+ *
  * The tool suite is currently maintained by Doug Burger and Todd M. Austin.
- * 
+ *
  * Copyright (C) 1994, 1995, 1996, 1997, 1998 by Todd M. Austin
  *
  * This source file is distributed "as is" in the hope that it will be
  * useful.  The tool set comes with no warranty, and no author or
  * distributor accepts any responsibility for the consequences of its
- * use. 
- * 
+ * use.
+ *
  * Everyone is granted permission to copy, modify and redistribute
  * this tool set under the following conditions:
- * 
- *    This source code is distributed for non-commercial use only. 
- *    Please contact the maintainer for restrictions applying to 
+ *
+ *    This source code is distributed for non-commercial use only.
+ *    Please contact the maintainer for restrictions applying to
  *    commercial use.
  *
  *    Permission is granted to anyone to make or distribute copies
@@ -91,7 +91,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <sys/types.h>
-#include "/filespace/people/c/cabaj/sim-R10K-lib/include/zlib.h"
+#include "/filespace/people/j/jtabor/ECE752/sim-R10K-lib/include/zlib.h"
 
 /* boolean value defs */
 #ifndef TRUE
@@ -102,7 +102,7 @@
 #endif
 #ifndef BOOL_DOM
 #define BOOL_DOM 2
-#endif 
+#endif
 
 /* various useful macros */
 #ifndef MAX

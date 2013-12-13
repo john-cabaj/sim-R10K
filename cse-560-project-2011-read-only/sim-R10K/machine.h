@@ -3,21 +3,21 @@
  *
  * This file is a part of the SimpleScalar tool suite written by
  * Todd M. Austin as a part of the Multiscalar Research Project.
- *  
+ *
  * The tool suite is currently maintained by Doug Burger and Todd M. Austin.
- * 
+ *
  * Copyright (C) 1994, 1995, 1996, 1997, 1998 by Todd M. Austin
  *
  * This source file is distributed "as is" in the hope that it will be
  * useful.  The tool set comes with no warranty, and no author or
  * distributor accepts any responsibility for the consequences of its
- * use. 
- * 
+ * use.
+ *
  * Everyone is granted permission to copy, modify and redistribute
  * this tool set under the following conditions:
- * 
- *    This source code is distributed for non-commercial use only. 
- *    Please contact the maintainer for restrictions applying to 
+ *
+ *    This source code is distributed for non-commercial use only.
+ *    Please contact the maintainer for restrictions applying to
  *    commercial use.
  *
  *    Permission is granted to anyone to make or distribute copies
@@ -183,14 +183,14 @@ enum md_fault_t {
 
 /* dependences in terms of inputs and outputs */
 #define DEP_I1 0
-#define DEP_I2 1 
+#define DEP_I2 1
 #define DEP_I3 2
 #define DEP_O1 3
 
 #define DEP_STORE_DATA          DEP_I1
 #define DEP_ADDR                DEP_I2
 
-union val_t 
+union val_t
 {
   quad_t q;
   dfloat_t d;
@@ -358,13 +358,13 @@ extern char *md_op2format[];
 
 /* function unit classes, update md_fu2name if you update this definition */
 enum fuclass_t {
-  fuclass_NA = 0, 
-  fuclass_IALU, 
+  fuclass_NA = 0,
+  fuclass_IALU,
   fuclass_ISHIFT,
   fuclass_IBRANCH,
-  fuclass_IMULT, 
+  fuclass_IMULT,
   fuclass_IDIV,
-  fuclass_FADD, 
+  fuclass_FADD,
   fuclass_FBRANCH,
   fuclass_FCVT,
   fuclass_FMULT,
@@ -628,18 +628,18 @@ int char2bool(char c);
 
 enum insn_class_t
 {
-  ic_nop = 0,
-  ic_prefetch,
-  ic_load,
-  ic_store,
-  ic_ctrl,
-  ic_icomp,
-  ic_icomplong,
-  ic_fcomp,
-  ic_fcomplong,
-  ic_sys,
-  ic_other,
-  ic_NUM
+  ic_nop = 0,		//0
+  ic_prefetch,		//1
+  ic_load,			//2
+  ic_store,			//3
+  ic_ctrl,			//4
+  ic_icomp,			//5
+  ic_icomplong,		//6
+  ic_fcomp,			//7
+  ic_fcomplong,		//8
+  ic_sys,			//9
+  ic_other,			//10
+  ic_NUM			//11
 };
 
 extern char *md_pm2str[];
