@@ -72,7 +72,7 @@
  * sim-outorder speculative loads no longer allocate memory pages,
  *       this significantly reduces memory requirements for programs with
  *       lots of mispeculation (e.g., cc1)
- * branch predictor updates can now optionally occur in ID, WB,
+ * branch predictor updates can now optionally occur in ID, WB,
  *       or CT
  * added target-dependent myprintf() support
  * fixed speculative quadword store bug (missing most significant word)
@@ -702,7 +702,11 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 		return TRUE;
 	}
 	fprintf(stdout, "ALLOCATING CHECKPOINT AND STUFF\n");
+<<<<<<< HEAD
 	if(CHECK_buffer.tail <= 7){
+=======
+	if(CHECK_buffer.tail < 7){
+>>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 		int i;
 		for (i = 0;i<8;i++){
 			if (checkpoint_elements[i].inUse == FALSE){
@@ -866,13 +870,17 @@ CHECK_revert(int checkpoint){
 
 		if (CHECK_buffer.buffer[i] == checkpoint){
 			fetch_PC = checkpoint_elements[checkpoint].checkpointPC;
-//			CHECK_erase(checkpoint);
+			//			CHECK_erase(checkpoint);
 			//Squash instructions
 			PLINK_freeCheckpoint_list(&scheduler_queue, scheduler_queue,CHECK_buffer.buffer[i]);
 			fprintf(stdout, "BEFORE\n");
 			PLINK_freeCheckpoint_list(&writeback_queue, writeback_queue,CHECK_buffer.buffer[i]);
 			fprintf(stdout, "AFTER\n");
+<<<<<<< HEAD
 //			CHECK_buffer.buffer[i] = -1;
+=======
+			//			CHECK_buffer.buffer[i] = -1;
+>>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 			newTail = i+1;
 			found = TRUE;
 			checkpoint_elements[checkpoint].insnCounter = 0;
@@ -1176,14 +1184,22 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 				}
 				else{
 					currentCheckpoint = checkpoint;
+<<<<<<< HEAD
 //					fprintf(stdout,"\tPREG NULL\n");
+=======
+					//					fprintf(stdout,"\tPREG NULL\n");
+>>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 				}
 
 				if(currentCheckpoint == checkpoint)
 				{
 					lc = lc->next;
 					PLINK_free(lf);
+<<<<<<< HEAD
 //					fprintf(stdout,"WENT THROUGH HERE IF%p\n",lc);
+=======
+					//					fprintf(stdout,"WENT THROUGH HERE IF%p\n",lc);
+>>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 					if(!lc){
 						fprintf(stdout,"\nAFTER PLINK_freeCheckpoint_list: current Head is gone. [~1186]\n");
 						*queue = NULL;
@@ -1193,7 +1209,11 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 				}
 				else
 				{
+<<<<<<< HEAD
 //					fprintf(stdout,"WENT THROUGH HERE ELSE\n");
+=======
+					//					fprintf(stdout,"WENT THROUGH HERE ELSE\n");
+>>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 					*queue = &lc;
 					break;
 				}
@@ -1245,8 +1265,13 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 			PLINK_free(lc);
 		}
 	}
+<<<<<<< HEAD
 //	fprintf(stdout,"\nAFTER PLINK_freeCheckpoint_list\n");
 //	PLINK_printList(l);
+=======
+	//	fprintf(stdout,"\nAFTER PLINK_freeCheckpoint_list\n");
+	//	PLINK_printList(l);
+>>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 }
 
 STATIC void
@@ -1990,7 +2015,7 @@ REGS_update_regs_checkpoint (int checkpoint)
 		struct preg_t *preg = &pregs[pregnum];
 
 		//check here if there is a mapping in the map table. if so, update checkpoint field of the register.
-			mapping = 0;
+		mapping = 0;
 		for(lregnum = 0; lregnum < MD_TOTAL_REGS; lregnum ++)
 		{
 			if(lregs[lregnum] == pregnum)
@@ -2829,7 +2854,7 @@ commit_stage(void)
 		}
 
 		regs_commit(is->pregnums[DEP_O1]);
-		*/
+		 */
 
 		//committing now
 		is->when.committed = sim_cycle;
@@ -3046,7 +3071,10 @@ writeback_stage(void)
 		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 		///////////////////////////////////////////////////////////////////////////
 		fprintf(stdout, "WRITEBACK STAGE INSTRUCTION: %d CHECKPOINT: %d\n", is->pdi->iclass, is->checkpoint);
+<<<<<<< HEAD
 		CHECK_dump();
+=======
+>>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 		REGS_removeReader(is);
 		/* wakeup ready instructions */
 		/* walk output list, queue up ready operations */
@@ -3756,7 +3784,7 @@ fetch_stage(void)
 			IFQ.num < IFQ.size  &&
 			/* valid text address */
 			valid_text_address(mem, fetch_PC);
-)
+	)
 	{
 		md_inst_t inst;
 		struct INSN_station_t *is = NULL;
@@ -3902,28 +3930,28 @@ sim_sample_on(unsigned long long n_insn)
 	while (n_insn == 0 ||  n_insn_commit_sum < n_insn_commit_sum_beg + n_insn)
 	{
 		/* commit entries from RUU/LSQ to architected register file */
-//		fprintf(stdout,"into commit\n");
+		//		fprintf(stdout,"into commit\n");
 		commit_stage();
-//		fprintf(stdout,"commit done\ninto writeback\n");
+		//		fprintf(stdout,"commit done\ninto writeback\n");
 
 		/* service result completions, also readies dependent operations */
 		/* ==> inserts operations into ready queue --> register deps resolved */
 		writeback_stage();
-//		fprintf(stdout,"writeback done\ninto schedule\n");
+		//		fprintf(stdout,"writeback done\ninto schedule\n");
 		/* invoke scheduler to schedule ready or partially ready events.
          The two schedulers act in parallel but are written separately
          for clarity */
 		schedule_stage();
-//		fprintf(stdout,"schedule done\ninto rename\n");
+		//		fprintf(stdout,"schedule done\ninto rename\n");
 		/* decode and dispatch new operations */
 		/* ==> insert ops w/ no deps or all regs ready --> reg deps resolved */
 		rename_stage();
-//		fprintf(stdout,"rename complete\ninto fetch\n");
+		//		fprintf(stdout,"rename complete\ninto fetch\n");
 
 
 		/* call instruction fetch unit if it is not blocked */
 		fetch_stage();
-//		fprintf(stdout,"out of fetch\n");
+		//		fprintf(stdout,"out of fetch\n");
 		if (insn_limit != 0 && n_insn_commit_sum >= insn_limit)
 		{
 			myfprintf(stderr, "Reached instruction limit: %u\n", insn_limit);
@@ -3968,3 +3996,5 @@ sim_start(void)
 	regs.PC = ld_prog_entry;
 	regs.NPC = regs.PC + sizeof(md_inst_t);
 }
+
+
