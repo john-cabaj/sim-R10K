@@ -619,6 +619,32 @@ LDST_remove(struct LDST_queue_t *q,
 	else q->lnum--;
 }
 
+STATIC INLINE void
+LDST_print(struct LDST_queue_t *q){
+	struct LDST_station_t *ls;
+	if(q){
+		fprintf(stdout,"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+		fprintf(stdout,"\n\nPRINTING LOAD STORE QUEUE POINTER: %p \n\n",q);
+	}
+	else{
+		fprintf(stdout,"QUEUE POINTER EMPTY!\n");
+		fprintf(stdout,"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+		return;
+	}
+	ls = q->head->next;
+	int i = 0;
+	while(ls){
+		fprintf(stdout,"PRINTING LDST ELEMENT: %d\n",i);
+		fprintf(stdout,"\tIS POINTER: %p\n",ls->is);
+		fprintf(stdout,"\t\tCHECKPOINT: %d\n",ls->is->checkpoint);
+		fprintf(stdout,"\t\tIS TYPE: %d\n",ls->is->pdi->iclass);
+		fprintf(stdout,"\t\tIS PC: %d\n",ls->is->PC);
+		i++;
+		ls=ls->next;
+	}
+	fprintf(stdout,"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+
+}
 /* setting all commits of stores */
 STATIC INLINE void
 ST_commits(struct LDST_queue_t *q, int checkpoint)
@@ -702,11 +728,7 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 		return TRUE;
 	}
 	fprintf(stdout, "ALLOCATING CHECKPOINT AND STUFF\n");
-<<<<<<< HEAD
 	if(CHECK_buffer.tail <= 7){
-=======
-	if(CHECK_buffer.tail < 7){
->>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 		int i;
 		for (i = 0;i<8;i++){
 			if (checkpoint_elements[i].inUse == FALSE){
@@ -876,11 +898,8 @@ CHECK_revert(int checkpoint){
 			fprintf(stdout, "BEFORE\n");
 			PLINK_freeCheckpoint_list(&writeback_queue, writeback_queue,CHECK_buffer.buffer[i]);
 			fprintf(stdout, "AFTER\n");
-<<<<<<< HEAD
 //			CHECK_buffer.buffer[i] = -1;
-=======
 			//			CHECK_buffer.buffer[i] = -1;
->>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 			newTail = i+1;
 			found = TRUE;
 			checkpoint_elements[checkpoint].insnCounter = 0;
@@ -1184,22 +1203,16 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 				}
 				else{
 					currentCheckpoint = checkpoint;
-<<<<<<< HEAD
 //					fprintf(stdout,"\tPREG NULL\n");
-=======
 					//					fprintf(stdout,"\tPREG NULL\n");
->>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 				}
 
 				if(currentCheckpoint == checkpoint)
 				{
 					lc = lc->next;
 					PLINK_free(lf);
-<<<<<<< HEAD
 //					fprintf(stdout,"WENT THROUGH HERE IF%p\n",lc);
-=======
 					//					fprintf(stdout,"WENT THROUGH HERE IF%p\n",lc);
->>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 					if(!lc){
 						fprintf(stdout,"\nAFTER PLINK_freeCheckpoint_list: current Head is gone. [~1186]\n");
 						*queue = NULL;
@@ -1209,11 +1222,8 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 				}
 				else
 				{
-<<<<<<< HEAD
 //					fprintf(stdout,"WENT THROUGH HERE ELSE\n");
-=======
 					//					fprintf(stdout,"WENT THROUGH HERE ELSE\n");
->>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 					*queue = &lc;
 					break;
 				}
@@ -1265,13 +1275,6 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 			PLINK_free(lc);
 		}
 	}
-<<<<<<< HEAD
-//	fprintf(stdout,"\nAFTER PLINK_freeCheckpoint_list\n");
-//	PLINK_printList(l);
-=======
-	//	fprintf(stdout,"\nAFTER PLINK_freeCheckpoint_list\n");
-	//	PLINK_printList(l);
->>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
 }
 
 STATIC void
@@ -3071,10 +3074,8 @@ writeback_stage(void)
 		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 		///////////////////////////////////////////////////////////////////////////
 		fprintf(stdout, "WRITEBACK STAGE INSTRUCTION: %d CHECKPOINT: %d\n", is->pdi->iclass, is->checkpoint);
-<<<<<<< HEAD
 		CHECK_dump();
-=======
->>>>>>> d2b02ca15b7f12a17b00816f51b322e19e7aa848
+		LDST_print(&LSQ);
 		REGS_removeReader(is);
 		/* wakeup ready instructions */
 		/* walk output list, queue up ready operations */
