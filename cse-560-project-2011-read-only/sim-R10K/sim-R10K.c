@@ -763,29 +763,31 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 STATIC INLINE int
 CHECK_AddInstruction(int insnType, struct INSN_station_t *insn){  //try to add the instruction to the current chkpnt.  If it doesn't work try to make another one.
 
-	fprintf(stdout,"TYPE OF INSTRUCTION ADDED: %d\n",insnType);
-	if (insnType != ic_sys){
-		if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions >=256 || CHECK_buffer.tail == 0){
-			return -1;
+	if(insnType != ic_store){
+		fprintf(stdout,"TYPE OF INSTRUCTION ADDED: %d\n",insnType);
+		if (insnType != ic_sys){
+			if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions >=256 || CHECK_buffer.tail == 0){
+				return -1;
+			}
+
+			checkpoint_elements[CHECK_buffer.tail-1].total++;
+			checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions++;
+			checkpoint_elements[CHECK_buffer.tail-1].commitReady=FALSE;
+
+		}
+		else{
+			hasSystemCall = TRUE;
+			systemCallAddress = insn;
 		}
 
-		checkpoint_elements[CHECK_buffer.tail-1].total++;
-		checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions++;
-		checkpoint_elements[CHECK_buffer.tail-1].commitReady=FALSE;
-
+		fprintf(stdout,"INSTRUCTION CHECKPOINT: %d\n", CHECK_buffer.buffer[CHECK_buffer.tail-1]);
+		return CHECK_buffer.buffer[CHECK_buffer.tail-1];
 	}
-	else{
-		hasSystemCall = TRUE;
-		systemCallAddress = insn;
-	}
-
-	fprintf(stdout,"INSTRUCTION CHECKPOINT: %d\n", CHECK_buffer.buffer[CHECK_buffer.tail-1]);
-	return CHECK_buffer.buffer[CHECK_buffer.tail-1];
 }
 
 STATIC INLINE void
 CHECK_RemoveInstruction(int checkpoint, int insnType){
-	if (insnType != ic_sys){
+	//if (insnType != ic_sys){
 		checkpoint_elements[checkpoint].numberOfInstructions--;
 
 		if(insnType != ic_load && insnType != ic_store && insnType != ic_prefetch){
@@ -795,12 +797,29 @@ CHECK_RemoveInstruction(int checkpoint, int insnType){
 		}
 
 		if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
-			fprintf(stdout, "COMMIT TIME\n");
-			checkpoint_elements[checkpoint].commitReady = TRUE;
-			CHECK_tryCommit();
+			/*if(CHECK_AllStores(checkpoint)){
+				fprintf(stdout, "COMMIT TIME, CHECKPOINT: %d\n", checkpoint);
+				checkpoint_elements[checkpoint].commitReady = TRUE;
+				CHECK_tryCommit();
+			}*/
 		}
-	}
+	//}
 }
+
+/*STATIC INLINE int
+CHECK_AllStores(int checkpoint){
+	struct LDST_station_t *l = LSQ.head;
+
+	while(l){
+		if((l->is->checkpoint == checkpoint) && (l->is->pdi->iclass == ic_store)){
+			if(!STORE_ADDR_READY(l) || !STORE_DATA_READY(l)){
+				return FALSE;
+			}
+		}
+		l = l->next;
+	}
+	return TRUE;
+}*/
 
 STATIC INLINE void
 CHECK_tryCommit(){
@@ -3074,8 +3093,8 @@ writeback_stage(void)
 		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 		///////////////////////////////////////////////////////////////////////////
 		fprintf(stdout, "WRITEBACK STAGE INSTRUCTION: %d CHECKPOINT: %d\n", is->pdi->iclass, is->checkpoint);
-		CHECK_dump();
-		LDST_print(&LSQ);
+		//CHECK_dump();
+		//LDST_print(&LSQ);
 		REGS_removeReader(is);
 		/* wakeup ready instructions */
 		/* walk output list, queue up ready operations */
@@ -3116,6 +3135,9 @@ writeback_stage(void)
 
 		/* committing now */
 		is->when.committed = sim_cycle;
+		fprintf(stdout, "WRITEBACK STAGE COMMIT\n");
+		fprintf(stdout, "INSN: %d CHECKPOINT: %d PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
+		CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
 
 		if (is->pdi->iclass == ic_ctrl)
 		{
@@ -3241,6 +3263,7 @@ schedule_stage(void)
 			}
 
 			is->when.issued = is->when.completed = preg->when_written = sim_cycle;
+			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
 
 			/* consume store scheduling slot */
 			n_insn_exec[is->pdi->iclass]++;
@@ -3251,7 +3274,6 @@ schedule_stage(void)
 			is->f_rs = FALSE;
 			rs_num++;
 
-			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
 			/* remove node from scheduler queue */
 			if (pnode) pnode->next = nnode;
 			else scheduler_queue = nnode;
@@ -3648,10 +3670,12 @@ rename_stage(void)
 		/* LDQ full */
 		//FIXME: This is filling up!!  Fix it 12/13/2013
 		if ((is->pdi->iclass == ic_load || is->pdi->iclass == ic_prefetch) && LSQ.lnum == LSQ.lsize){
+			//fprintf(stdout, "LOAD FULL\n");
 			break;
 		}
 		/* STQ full */
 		if (is->pdi->iclass == ic_store && LSQ.snum == LSQ.ssize){
+			//fprintf(stdout, "STORE FULL\n");
 			break;
 		}
 		/* no more reservation stations */
