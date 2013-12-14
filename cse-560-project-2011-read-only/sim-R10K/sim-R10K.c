@@ -763,16 +763,16 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 STATIC INLINE int
 CHECK_AddInstruction(int insnType, struct INSN_station_t *insn){  //try to add the instruction to the current chkpnt.  If it doesn't work try to make another one.
 
-	if(insnType != ic_store){
+	//if(insnType != ic_store){
 		fprintf(stdout,"TYPE OF INSTRUCTION ADDED: %d\n",insnType);
 		if (insnType != ic_sys){
-			if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions >=256 || CHECK_buffer.tail == 0){
+			if (checkpoint_elements[CHECK_buffer.buffer[CHECK_buffer.tail-1]].numberOfInstructions >=256 || CHECK_buffer.tail == 0){
 				return -1;
 			}
 
-			checkpoint_elements[CHECK_buffer.tail-1].total++;
-			checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions++;
-			checkpoint_elements[CHECK_buffer.tail-1].commitReady=FALSE;
+			checkpoint_elements[CHECK_buffer.buffer[CHECK_buffer.tail-1]].total++;
+			checkpoint_elements[CHECK_buffer.buffer[CHECK_buffer.tail-1]].numberOfInstructions++;
+			checkpoint_elements[CHECK_buffer.buffer[CHECK_buffer.tail-1]].commitReady=FALSE;
 
 		}
 		else{
@@ -782,11 +782,12 @@ CHECK_AddInstruction(int insnType, struct INSN_station_t *insn){  //try to add t
 
 		fprintf(stdout,"INSTRUCTION CHECKPOINT: %d\n", CHECK_buffer.buffer[CHECK_buffer.tail-1]);
 		return CHECK_buffer.buffer[CHECK_buffer.tail-1];
-	}
+	//}
 }
 
 STATIC INLINE void
 CHECK_RemoveInstruction(int checkpoint, int insnType){
+
 	//if (insnType != ic_sys){
 		checkpoint_elements[checkpoint].numberOfInstructions--;
 
@@ -797,11 +798,11 @@ CHECK_RemoveInstruction(int checkpoint, int insnType){
 		}
 
 		if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
-			/*if(CHECK_AllStores(checkpoint)){
+			//if(CHECK_AllStores(checkpoint)){
 				fprintf(stdout, "COMMIT TIME, CHECKPOINT: %d\n", checkpoint);
 				checkpoint_elements[checkpoint].commitReady = TRUE;
 				CHECK_tryCommit();
-			}*/
+			//}
 		}
 	//}
 }
@@ -890,6 +891,7 @@ CHECK_revert(int checkpoint){
 	fprintf(stdout,"CHECKPOINT %d REVERTED\n",checkpoint);
 	//Tell the LSQ to kill everything passed this checkpoint.
 	ST_remove(&LSQ, checkpoint);
+	CHECK_dumpBuffer();
 	//Tell the register file to erase everything but this map table (and previous ones).
 	//Previous ones can be figured out with isInUse(int checkpoint);
 	REGS_revert_checkpoint(checkpoint,checkpoint_elements[checkpoint].mapTable);
@@ -910,20 +912,19 @@ CHECK_revert(int checkpoint){
 		}
 
 		if (CHECK_buffer.buffer[i] == checkpoint){
+			checkpoint_elements[checkpoint].commitReady = FALSE;
+			fprintf(stdout, "COMMIT READY: %d\n", checkpoint_elements[checkpoint].commitReady);
 			fetch_PC = checkpoint_elements[checkpoint].checkpointPC;
-			//			CHECK_erase(checkpoint);
+
 			//Squash instructions
-			PLINK_freeCheckpoint_list(&scheduler_queue, scheduler_queue,CHECK_buffer.buffer[i]);
-			fprintf(stdout, "BEFORE\n");
+			PLINK_freeCheckpoint_list(&scheduler_queue, scheduler_queue,CHECK_buffer.buffer[i]);;
 			PLINK_freeCheckpoint_list(&writeback_queue, writeback_queue,CHECK_buffer.buffer[i]);
-			fprintf(stdout, "AFTER\n");
-//			CHECK_buffer.buffer[i] = -1;
-			//			CHECK_buffer.buffer[i] = -1;
+
 			newTail = i+1;
 			found = TRUE;
 			checkpoint_elements[checkpoint].insnCounter = 0;
 			checkpoint_elements[checkpoint].numberOfInstructions = 0;
-			//FIXME: Set all the instruction stuff to 0.
+
 			hasSystemCall = FALSE;
 			systemCallAddress = NULL;
 		}
@@ -932,7 +933,7 @@ CHECK_revert(int checkpoint){
 	}
 	CHECK_buffer.tail = newTail;
 	if (found == FALSE){
-		fprintf(stdout,"Checkpoint to revert %d not found!!",checkpoint);
+		panic("Checkpoint to revert %d not found!!",checkpoint);
 	}
 	CHECK_dumpBuffer();
 }
@@ -1193,11 +1194,12 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 	struct PREG_link_t *head;
 	int currentCheckpoint;
 	currentCheckpoint = -1;
-	fprintf(stdout,"\n\nBEFORE PLINK_freeCheckpoint_list\n");
-	PLINK_printList(l);
+
+	fprintf(stdout,"\n\nPLINK_freeCheckpoint REVERTING: %d\n",checkpoint);
+
 	if(l)
 	{
-		fprintf(stdout, "PREG: %p\n", lc->preg);
+
 
 		if(lc->preg){
 			currentCheckpoint = lc->preg->is->checkpoint;
@@ -1205,45 +1207,40 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 		else{
 			currentCheckpoint = checkpoint;
 		}
-		fprintf(stdout,"PASSED THIS POINT\n");
+
 		if(currentCheckpoint == checkpoint)
 		{
 			lf = lc;
 			lc = lc->next;
 			PLINK_free(lf);
-			fprintf(stdout,"PASSED THIS POINT in first loop\n");
 			while(lc)
 			{
 				lf = lc;
 
 				if(lc->preg){
 					currentCheckpoint = lc->preg->is->checkpoint;
-					fprintf(stdout,"\tPREG NOT NULL\n");
 				}
 				else{
 					currentCheckpoint = checkpoint;
-//					fprintf(stdout,"\tPREG NULL\n");
-					//					fprintf(stdout,"\tPREG NULL\n");
+
 				}
 
 				if(currentCheckpoint == checkpoint)
 				{
 					lc = lc->next;
 					PLINK_free(lf);
-//					fprintf(stdout,"WENT THROUGH HERE IF%p\n",lc);
-					//					fprintf(stdout,"WENT THROUGH HERE IF%p\n",lc);
+
 					if(!lc){
-						fprintf(stdout,"\nAFTER PLINK_freeCheckpoint_list: current Head is gone. [~1186]\n");
+
 						*queue = NULL;
-						fprintf(stdout,"SCHEDULER_QUEUE: %p\n",scheduler_queue);
+
 						return;
 					}
 				}
 				else
 				{
-//					fprintf(stdout,"WENT THROUGH HERE ELSE\n");
-					//					fprintf(stdout,"WENT THROUGH HERE ELSE\n");
-					*queue = &lc;
+					*queue = &lc->next;
+
 					break;
 				}
 			}
@@ -1252,12 +1249,12 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 		if(!lc)
 		{
 			*queue = NULL;
-			fprintf(stdout,"\n AFTER PLINK_freeCheckpointList: current queue head is null!\n");
 			return;
 		}
-		fprintf(stdout,"PASSED THIS POINT in second loop\n");
+
 		while (lc->next)
 		{
+
 			lf = lc->next;
 			if(lf){
 				if(lf->preg){
@@ -1280,7 +1277,7 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 				lc = lc->next;
 			}
 		}
-		fprintf(stdout,"PASSED THIS POINT DONE\n");
+
 		if(lc->preg){
 			currentCheckpoint = lc->preg->is->checkpoint;
 		}
@@ -1290,10 +1287,12 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 
 		if(lc && lc->preg->is->checkpoint == checkpoint)
 		{
+
 			lf->next = NULL;
 			PLINK_free(lc);
 		}
 	}
+
 }
 
 STATIC void
@@ -2768,8 +2767,11 @@ commit_stage(void)
 
 		/* at least RUU entry must be complete.  BTW, complete
 	 means complete last cycle */
-		if (is->f_wrong_path)
+		if (is->f_wrong_path){
+			fprintf(stdout, "WRONG PATH INSN: %d CHECKPOINT: %d PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
+			CHECK_dump();
 			panic("committing a wrong-path insn!");
+		}
 
 		if (preg->fault != md_fault_none)
 			panic("committing faulting instruction!");
@@ -2854,7 +2856,7 @@ commit_stage(void)
 				fclose(fdump);
 			}
 		}
-		//FIXME: need to find another way to get instructions in LSQ! (12/13/2013: no idea what this means...
+
 		if (is->pdi->iclass == ic_load || is->pdi->iclass == ic_store || is->pdi->iclass == ic_prefetch)
 		{
 
@@ -3019,13 +3021,13 @@ writeback_stage(void)
 		struct INSN_station_t *is = preg->is;
 
 		/* if link is not valid (instruction has been squashed), delete and skip */
-		/*if (!PLINK_valid(preg)) || !preg->is)
-		{
-			if (pnode) pnode->next = nnode;
-			else scheduler_queue = nnode;
-			PLINK_free(node);
-			continue;
-		}*/
+//		if (!PLINK_valid(preg->) || !preg->is)
+//		{
+//			if (pnode) pnode->next = nnode;
+//			else scheduler_queue = nnode;
+//			PLINK_free(node);
+//			continue;
+//		}
 
 		/* IS has completed execution and (possibly) produced a result */
 		if (!is->when.regread || !is->when.ready || !is->when.issued)
@@ -3055,11 +3057,12 @@ writeback_stage(void)
 			IFQ_recover(is);
 
 			///////////////////////////////////////////////////////////////////////////
-			/* TODO:			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 	   */
+			/* 			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 	   */
 			///////////////////////////////////////////////////////////////////////////
 			fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
-			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
 			CHECK_revert(is->checkpoint);
+			//CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
+
 
 			if (is->pdi->iclass == ic_ctrl)
 			{
