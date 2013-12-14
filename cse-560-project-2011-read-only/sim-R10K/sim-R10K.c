@@ -251,7 +251,7 @@ struct PREG_link_t {
 	} x;
 };
 
-void PLINK_freeCheckpoint_list(struct PREG_link_t *l, int checkpoint);
+void PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int checkpoint);
 
 /* physical register: holds R10000 renamed values and dependence links
    for register scheduling.  preg_np_t and preg_list_t are structure
@@ -701,6 +701,7 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 	if (checkpoint_elements[CHECK_buffer.tail-1].numberOfInstructions == 0 && CHECK_buffer.tail-1 >= 0){
 		return TRUE;
 	}
+	fprintf(stdout, "ALLOCATING CHECKPOINT AND STUFF\n");
 	if(CHECK_buffer.tail < 7){
 		int i;
 		for (i = 0;i<8;i++){
@@ -750,8 +751,8 @@ CHECK_AddInstruction(int insnType, struct INSN_station_t *insn){  //try to add t
 		systemCallAddress = insn;
 	}
 
-	fprintf(stdout,"INSTRUCTION CHECKPOINT: %d\n",CHECK_buffer.tail-1);
-	return CHECK_buffer.tail-1;
+	fprintf(stdout,"INSTRUCTION CHECKPOINT: %d\n", CHECK_buffer.buffer[CHECK_buffer.tail-1]);
+	return CHECK_buffer.buffer[CHECK_buffer.tail-1];
 }
 
 STATIC INLINE void
@@ -766,6 +767,7 @@ CHECK_RemoveInstruction(int checkpoint, int insnType){
 		}
 
 		if (checkpoint_elements[checkpoint].numberOfInstructions == 0){
+			fprintf(stdout, "COMMIT TIME\n");
 			checkpoint_elements[checkpoint].commitReady = TRUE;
 			CHECK_tryCommit();
 		}
@@ -838,7 +840,7 @@ CHECK_getActiveMaps(){
 
 STATIC INLINE void
 CHECK_revert(int checkpoint){
-	fprintf(stdout,"checkpoint %d reverted\n",checkpoint);
+	fprintf(stdout,"CHECKPOINT %d REVERTED\n",checkpoint);
 	//Tell the LSQ to kill everything passed this checkpoint.
 	ST_remove(&LSQ, checkpoint);
 	//Tell the register file to erase everything but this map table (and previous ones).
@@ -853,10 +855,8 @@ CHECK_revert(int checkpoint){
 		if (found==TRUE){
 			//Squash instructions for this checkpoint.
 			CHECK_erase(CHECK_buffer.buffer[i]);
-			fprintf(stdout, "BEFORE\n");
-			PLINK_freeCheckpoint_list(scheduler_queue,CHECK_buffer.buffer[i]);
-			fprintf(stdout, "AFTER\n");
-			PLINK_freeCheckpoint_list(writeback_queue,CHECK_buffer.buffer[i]);
+			PLINK_freeCheckpoint_list(&scheduler_queue, scheduler_queue,CHECK_buffer.buffer[i]);
+			PLINK_freeCheckpoint_list(&writeback_queue, writeback_queue,CHECK_buffer.buffer[i]);
 			CHECK_buffer.buffer[i] = -1;
 
 
@@ -866,8 +866,10 @@ CHECK_revert(int checkpoint){
 			fetch_PC = checkpoint_elements[checkpoint].checkpointPC;
 //			CHECK_erase(checkpoint);
 			//Squash instructions
-			PLINK_freeCheckpoint_list(scheduler_queue,CHECK_buffer.buffer[i]);
-			PLINK_freeCheckpoint_list(writeback_queue,CHECK_buffer.buffer[i]);
+			PLINK_freeCheckpoint_list(&scheduler_queue, scheduler_queue,CHECK_buffer.buffer[i]);
+			fprintf(stdout, "BEFORE\n");
+			PLINK_freeCheckpoint_list(&writeback_queue, writeback_queue,CHECK_buffer.buffer[i]);
+			fprintf(stdout, "AFTER\n");
 //			CHECK_buffer.buffer[i] = -1;
 			newTail = i+1;
 			found = TRUE;
@@ -1088,23 +1090,69 @@ temp(struct PREG_link_t *lc)
 }*/
 
 STATIC INLINE void
-PLINK_freeCheckpoint_list(struct PREG_link_t *l, int checkpoint)
+PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int checkpoint)
 {
 	struct PREG_link_t *lf;
 	struct PREG_link_t *lc = l;
+	struct PREG_link_t *head;
 
-	while (lc)
+	fprintf(stdout, "PLINK FREEING STUFF\n");
+
+	if(l)
 	{
-		lf = lc;
+		fprintf(stdout, "PREG: %p\n", lc->preg);
 
-		fprintf(stdout, "CHECKPOINT: %d\n", lc->preg->checkpoint);
-
-		if(lc->preg->is->checkpoint == checkpoint){
+		if(lc->preg->is->checkpoint == checkpoint)
+		{
+			lf = lc;
 			lc = lc->next;
 			PLINK_free(lf);
+
+			while(lc)
+			{
+				lf = lc;
+				if(lc->preg->is->checkpoint == checkpoint)
+				{
+					lc = lc->next;
+					PLINK_free(lf);
+					if(!lc)
+						return;
+				}
+				else
+				{
+					queue = &lc;
+					break;
+				}
+			}
 		}
-		else{
-			lc = lc->next;
+
+		if(!lc)
+		{
+			queue = NULL;
+			return;
+		}
+
+		while (lc->next)
+		{
+			lf = lc->next;
+
+			if(lf && lf->preg->is->checkpoint == checkpoint)
+			{
+				lc->next = lf->next;
+				lf = lc;
+				PLINK_free(lf);
+			}
+			else
+			{
+				lf = lc;
+				lc = lc->next;
+			}
+		}
+
+		if(lc && lc->preg->is->checkpoint == checkpoint)
+		{
+			lf->next = NULL;
+			PLINK_free(lc);
 		}
 	}
 }
@@ -2870,6 +2918,7 @@ writeback_stage(void)
 			/* TODO:			RECOVER A CHECKPOINT ON THE BRANCH MISPREDICTION 	   */
 			///////////////////////////////////////////////////////////////////////////
 			fprintf(stdout, "CHECKPOINT REVERT - MISPREDICTED BRANCH\n");
+			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
 			CHECK_revert(is->checkpoint);
 
 			if (is->pdi->iclass == ic_ctrl)
@@ -2903,7 +2952,7 @@ writeback_stage(void)
 		///////////////////////////////////////////////////////////////////////////
 		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 		///////////////////////////////////////////////////////////////////////////
-		CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
+		fprintf(stdout, "WRITEBACK STAGE INSTRUCTION: %d CHECKPOINT: %d\n", is->pdi->iclass, is->checkpoint);
 		REGS_removeReader(is);
 
 		/* wakeup ready instructions */
@@ -2945,10 +2994,6 @@ writeback_stage(void)
 
 		/* committing now */
 		is->when.committed = sim_cycle;
-		if(is->pdi->iclass != ic_load && is->pdi->iclass != ic_store && is->pdi->iclass != ic_prefetch && is->pdi->iclass != ic_sys){
-			fprintf(stdout, "WRITEBACK_STAGE COMMIT\n");
-			fprintf(stdout, "INSTRUCTION: %d FROM CHECKPOINT: %d COMMITTED PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
-		}
 
 		if (is->pdi->iclass == ic_ctrl)
 		{
@@ -3083,6 +3128,7 @@ schedule_stage(void)
 			is->f_rs = FALSE;
 			rs_num++;
 
+			CHECK_RemoveInstruction(is->checkpoint, is->pdi->iclass);
 			/* remove node from scheduler queue */
 			if (pnode) pnode->next = nnode;
 			else scheduler_queue = nnode;
@@ -3574,6 +3620,7 @@ rename_stage(void)
 
 		/* connect register dependences.  Put on scheduling queue if instruction is ready */
 		preg_connect_deps(preg);
+		fprintf(stdout, "PREG: %p\n", preg);
 		fprintf(stdout, "/****ADDED TO SCHEDULE QUEUE****/ INSTRUCTION: %d CHECKPOINT: %d PC: %d\n", is->pdi->iclass, is->checkpoint, is->PC);
 		scheduler_enqueue(preg);
 		/* this may be a mispredicted branch or jump.  Note,
