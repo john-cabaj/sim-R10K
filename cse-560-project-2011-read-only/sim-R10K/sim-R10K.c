@@ -702,7 +702,7 @@ CHECK_Allocate(regnum_t *mapTable, md_addr_t checkpointPC){
 		return TRUE;
 	}
 	fprintf(stdout, "ALLOCATING CHECKPOINT AND STUFF\n");
-	if(CHECK_buffer.tail < 7){
+	if(CHECK_buffer.tail <= 7){
 		int i;
 		for (i = 0;i<8;i++){
 			if (checkpoint_elements[i].inUse == FALSE){
@@ -2807,9 +2807,10 @@ commit_stage(void)
 				fclose(fdump);
 			}
 		}
-		//FIXME: need to find another way to get instructions in LSQ!
+		//FIXME: need to find another way to get instructions in LSQ! (12/13/2013: no idea what this means...
 		if (is->pdi->iclass == ic_load || is->pdi->iclass == ic_store || is->pdi->iclass == ic_prefetch)
 		{
+
 			/* remove from LSQ */
 			struct LDST_station_t *ls = LSQ.head;
 			assert(ls == is->ls && is == ls->is);
@@ -3045,8 +3046,8 @@ writeback_stage(void)
 		/* TODO:			 REMOVE INSTRUCTION FROM THE CHECKPOINT 			   */
 		///////////////////////////////////////////////////////////////////////////
 		fprintf(stdout, "WRITEBACK STAGE INSTRUCTION: %d CHECKPOINT: %d\n", is->pdi->iclass, is->checkpoint);
+		CHECK_dump();
 		REGS_removeReader(is);
-
 		/* wakeup ready instructions */
 		/* walk output list, queue up ready operations */
 		for (link = preg->odeps_head; link; link = link->next)
@@ -3111,6 +3112,7 @@ writeback_stage(void)
 
 		if(is->pdi->iclass != ic_load && is->pdi->iclass != ic_store && is->pdi->iclass != ic_prefetch && is->pdi->iclass != ic_sys)
 			INSN_free(is);
+
 	}  /* for all writeback events */
 }
 
@@ -3615,13 +3617,14 @@ rename_stage(void)
 	break;*/
 
 		/* LDQ full */
-		if ((is->pdi->iclass == ic_load || is->pdi->iclass == ic_prefetch) && LSQ.lnum == LSQ.lsize)
+		//FIXME: This is filling up!!  Fix it 12/13/2013
+		if ((is->pdi->iclass == ic_load || is->pdi->iclass == ic_prefetch) && LSQ.lnum == LSQ.lsize){
 			break;
-
+		}
 		/* STQ full */
-		if (is->pdi->iclass == ic_store && LSQ.snum == LSQ.ssize)
+		if (is->pdi->iclass == ic_store && LSQ.snum == LSQ.ssize){
 			break;
-
+		}
 		/* no more reservation stations */
 		if (is->pdi->iclass != ic_sys && sched_rs_num == rs_num)
 			break;
@@ -3634,14 +3637,13 @@ rename_stage(void)
 		/* 				TRY ADDING INSTRUCTION TO CHECKPOINT				   */
 		///////////////////////////////////////////////////////////////////////////
 		///////////////////////////////////////////////////////////////////////////
-		/* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LIMIT */
+		/* ALLOCATE CHECKPOINT IF LOW-CONFIDENCE BRANCH OR 256 INSTRUCTION LFIMIT */
 		///////////////////////////////////////////////////////////////////////////
 		//TODO: MODIFY FOR CORRECTNESS
 		if(is->allocate && is->pdi->iclass == ic_ctrl) {
 			if(CHECK_Allocate(lregs, is->PC)  == FALSE) {
 				//TODO: STALL
 				fprintf(stdout, "OUT OF CHECKPOINTS - BRANCH\n");
-				break;
 			}
 			fprintf(stdout, "SUCCESSFUL BRANCH CHECKPOINT ALLOCATE - FROM BRANCH\n");
 		}
