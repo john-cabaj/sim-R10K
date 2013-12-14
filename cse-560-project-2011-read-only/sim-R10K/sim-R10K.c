@@ -824,6 +824,7 @@ CHECK_AllStores(int checkpoint){
 
 STATIC INLINE void
 CHECK_tryCommit(){
+	CHECK_dumpBuffer();
 	if (checkpoint_elements[CHECK_buffer.buffer[0]].commitReady == TRUE){
 		//commit the first checkpoint
 		//Tell LSQ to start committing.
@@ -1239,7 +1240,7 @@ PLINK_freeCheckpoint_list(struct PREG_link_t **queue, struct PREG_link_t *l, int
 				}
 				else
 				{
-					*queue = &lc->next;
+					*queue = lc->next;
 
 					break;
 				}
